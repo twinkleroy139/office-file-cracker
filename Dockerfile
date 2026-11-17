@@ -21,5 +21,5 @@ RUN mkdir -p logs uploads wordlists && chmod -R 777 logs uploads wordlists
 # Render assigns a dynamic port via the PORT environment variable
 EXPOSE 8080
 
-# Start PHP built-in server bound to Render's port
-CMD ["sh", -c, "php -S 0.0.0.0:${PORT:-8080} -t ."]
+# Start PHP built-in server bound to Render's port using shell form
+CMD php -S 0.0.0.0:${PORT:-8080} -t .

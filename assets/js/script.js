@@ -2,10 +2,18 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
     e.preventDefault();
 
     let fileInput = document.getElementById('locked_file');
-    let wordlistInput = document.getElementById('wordlist_file');
+    let wordlistFileInput = document.getElementById('wordlist_file');
+    let wordlistSelect = document.getElementById('wordlist_select');
     
     document.getElementById('lbl-file').innerText = fileInput.files.length > 0 ? fileInput.files[0].name : "None";
-    document.getElementById('lbl-wordlist').innerText = wordlistInput.files.length > 0 ? wordlistInput.files[0].name : "None";
+    
+    let chosenWordlist = "None";
+    if (wordlistFileInput && wordlistFileInput.files.length > 0) {
+        chosenWordlist = wordlistFileInput.files[0].name;
+    } else if (wordlistSelect) {
+        chosenWordlist = wordlistSelect.value;
+    }
+    document.getElementById('lbl-wordlist').innerText = chosenWordlist;
 
     document.getElementById('dashboard-view').style.display = 'none';
     document.getElementById('progress-view').style.display = 'block';
@@ -23,7 +31,6 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
 
     let formData = new FormData(this);
 
-    // 1. Start background job via backend/process.php
     fetch('backend/process.php', {
         method: 'POST',
         body: formData
@@ -33,7 +40,6 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
         if (data.status === 'started') {
             lblStatus.innerText = 'EXECUTING BACKGROUND CRACKING PIPELINE...';
             
-            // 2. Poll backend/status.php every 1 second
             let pollInterval = setInterval(() => {
                 fetch('backend/status.php')
                 .then(res => res.json())

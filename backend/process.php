@@ -27,22 +27,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $err_msg = "Locked file upload failed or missing.";
         log_system_error("process.php", $err_msg);
-        echo json_encode(['status' => 'error', 'failed_file' => 'process.php', 'output' => $err_msg, 'debug_logs' => get_latest_error_logs()]);
+        echo json_encode(['status' => 'error', 'failed_file' => 'process.php', 'output' => $err_msg]);
         exit;
     }
 
-    // Capture selected server-side wordlist from dropdown
-    $selected_wordlist = isset($_POST['wordlist_select']) ? trim($_POST['wordlist_select']) : "10k-most-common.txt";
-    $wordlist_target = $wordlist_dir . basename($selected_wordlist);
-    
-    if (file_exists($wordlist_target)) {
-        $wordlist_path = realpath($wordlist_target);
-        $wordlist_name = $selected_wordlist;
+    // Priority 1: Check if user uploaded a custom wordlist file
+    if (isset($_FILES['wordlist_file']) && $_FILES['wordlist_file']['error'] == 0) {
+        $wordlist_name = basename($_FILES["wordlist_file"]["name"]);
+        $wordlist_target = $wordlist_dir . $wordlist_name;
+        if (move_uploaded_file($_FILES["wordlist_file"]["tmp_name"], $wordlist_target)) {
+            $wordlist_path = realpath($wordlist_target);
+        }
+    } 
+    // Priority 2: Fall back to pre-installed server dropdown wordlist
+    else {
+        $selected_wordlist = isset($_POST['wordlist_select']) ? trim($_POST['wordlist_select']) : "10k-most-common.txt";
+        $wordlist_target = $wordlist_dir . basename($selected_wordlist);
+        if (file_exists($wordlist_target)) {
+            $wordlist_path = realpath($wordlist_target);
+            $wordlist_name = $selected_wordlist;
+        }
     }
 
     $custom_clues = isset($_POST['custom_clues']) ? trim($_POST['custom_clues']) : "";
     
-    // Initialize status file for polling
     $initial_status = json_encode([
         'status' => 'running',
         'progress' => 5,
@@ -55,7 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $escaped_wordlist = escapeshellarg($wordlist_path);
     $escaped_clues = escapeshellarg($custom_clues);
 
-    // Launch Python in background
     $cmd = "start /B $python_exe ../engine/cracker.py $escaped_doc $escaped_wordlist $escaped_clues > ../logs/cracker_stdout.log 2>&1";
     pclose(popen($cmd, "r"));
 

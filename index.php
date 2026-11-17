@@ -16,18 +16,23 @@
             </div>
 
             <div class="form-group">
-                <label>2. Select Pre-Installed Server Wordlist:</label>
+                <label>2a. Select Pre-Installed Server Wordlist:</label>
                 <select name="wordlist_select" id="wordlist_select" style="width: 100%; padding: 10px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
                     <option value="10k-most-common.txt">10k Most Common Passwords (Recommended & Fast)</option>
                     <option value="20k.txt">20k Expanded Passwords</option>
                 </select>
-                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Optimized server-side dictionaries (Bypasses upload limits).</div>
+            </div>
+
+            <div class="form-group">
+                <label>2b. OR Upload Custom Password Bank Text File (.txt) (Optional):</label>
+                <input type="file" name="wordlist_file" id="wordlist_file">
+                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Custom upload overrides the dropdown selection.</div>
             </div>
 
             <div class="form-group">
                 <label>3. Custom Clues / Keywords (Optional):</label>
                 <textarea name="custom_clues" id="custom_clues" placeholder="Type words or numbers separated by commas, e.g., jitu, project, 2026, admin"></textarea>
-                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Words will be mixed and tested dynamically before the wordlist file.</div>
+                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Words will be mixed and tested dynamically before the wordlist.</div>
             </div>
 
             <button type="submit" id="start-btn">START RECOVERY PROCESS</button>

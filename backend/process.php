@@ -39,9 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $wordlist_path = realpath($wordlist_target);
         }
     } 
-    // Priority 2: Fall back to pre-installed server dropdown wordlist
-    else {
-        $selected_wordlist = isset($_POST['wordlist_select']) ? trim($_POST['wordlist_select']) : "10k-most-common.txt";
+    // Priority 2: Fall back to dropdown selection only if selected and not empty
+    elseif (isset($_POST['wordlist_select']) && trim($_POST['wordlist_select']) !== "") {
+        $selected_wordlist = trim($_POST['wordlist_select']);
         $wordlist_target = $wordlist_dir . basename($selected_wordlist);
         if (file_exists($wordlist_target)) {
             $wordlist_path = realpath($wordlist_target);
@@ -58,7 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
     file_put_contents($logs_dir . "job_status.json", $initial_status);
 
-    // Cross-platform python executable and background command execution
     $is_windows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
     $python_exe = $is_windows ? "python" : "python3";
     
@@ -70,7 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cmd = "start /B $python_exe ../engine/cracker.py $escaped_doc $escaped_wordlist $escaped_clues > ../logs/cracker_stdout.log 2>&1";
         pclose(popen($cmd, "r"));
     } else {
-        // Linux / Render background execution using nohup & detachment
         $cmd = "nohup $python_exe ../engine/cracker.py $escaped_doc $escaped_wordlist $escaped_clues > ../logs/cracker_stdout.log 2>&1 &";
         exec($cmd);
     }

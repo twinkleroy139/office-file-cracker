@@ -15,13 +15,16 @@ custom_clues = sys.argv[3]
 executed_module = "None"
 engine_dir = os.path.dirname(os.path.abspath(__file__))
 
+# Detect python executable name
+py_cmd = "python" if os.name == "nt" else "python3"
+
 try:
     # Step 1: Run custom clues engine
     if custom_clues and custom_clues.strip():
         executed_module = "custom_cracker.py"
         sub_script = os.path.join(engine_dir, "custom_cracker.py")
         print(f"[MASTER] Initiating Custom Clues & Smart Mangling Engine...")
-        res = subprocess.run(["python", sub_script, locked_file, custom_clues], capture_output=True, text=True)
+        res = subprocess.run([py_cmd, sub_script, locked_file, custom_clues], capture_output=True, text=True)
         print(res.stdout)
         if res.stderr:
             print(f"[-] Sub-Module stderr: {res.stderr}")
@@ -33,7 +36,7 @@ try:
         executed_module = "wordlist_cracker.py"
         sub_script = os.path.join(engine_dir, "wordlist_cracker.py")
         print(f"[MASTER] Initiating High-Speed Wordlist Cracker...")
-        res = subprocess.run(["python", sub_script, locked_file, wordlist_path], capture_output=True, text=True)
+        res = subprocess.run([py_cmd, sub_script, locked_file, wordlist_path], capture_output=True, text=True)
         print(res.stdout)
         if res.stderr:
             print(f"[-] Sub-Module stderr: {res.stderr}")

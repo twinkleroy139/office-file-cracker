@@ -58,13 +58,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ]);
     file_put_contents($logs_dir . "job_status.json", $initial_status);
 
-    $python_exe = "python";
+    // Cross-platform python executable and background command execution
+    $is_windows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
+    $python_exe = $is_windows ? "python" : "python3";
+    
     $escaped_doc = escapeshellarg(realpath($locked_file_target));
     $escaped_wordlist = escapeshellarg($wordlist_path);
     $escaped_clues = escapeshellarg($custom_clues);
 
-    $cmd = "start /B $python_exe ../engine/cracker.py $escaped_doc $escaped_wordlist $escaped_clues > ../logs/cracker_stdout.log 2>&1";
-    pclose(popen($cmd, "r"));
+    if ($is_windows) {
+        $cmd = "start /B $python_exe ../engine/cracker.py $escaped_doc $escaped_wordlist $escaped_clues > ../logs/cracker_stdout.log 2>&1";
+        pclose(popen($cmd, "r"));
+    } else {
+        // Linux / Render background execution using nohup & detachment
+        $cmd = "nohup $python_exe ../engine/cracker.py $escaped_doc $escaped_wordlist $escaped_clues > ../logs/cracker_stdout.log 2>&1 &";
+        exec($cmd);
+    }
 
     echo json_encode([
         'status' => 'started',

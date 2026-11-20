@@ -8,11 +8,22 @@
 <body>
 <div class="container">
     <div id="dashboard-view">
-        <h2>Document Password Recovery Suite</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+            <h2 style="margin: 0;">Document Password Recovery Suite</h2>
+            <span style="font-size: 11px; padding: 4px 8px; border: 1px solid #00ff6666; border-radius: 4px; background: #031206; color: #00ff66;">● WORKING PROCESS: READY</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 11px; color: #00b347; padding: 8px 10px; margin-bottom: 14px; border: 1px solid #00ff6633; border-radius: 4px; background: #030903;">
+            <span><strong>Pipeline:</strong> Clue Mangling &rarr; Dictionary Filter &rarr; Decrypt Engine</span>
+            <span><strong>Status:</strong> Successfully Working</span>
+            <span><strong>Queue:</strong> Idle &amp; Ready</span>
+        </div>
+
         <form id="recovery-form" enctype="multipart/form-data">
             <div class="form-group">
                 <label>1. Select Locked Document (.docx, .xlsx):</label>
                 <input type="file" name="locked_file" id="locked_file" required>
+                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Supported encrypted Office formats: Word (.docx) and Excel (.xlsx).</div>
             </div>
 
             <div class="form-group">
@@ -94,7 +105,7 @@
 
         <div class="status-bar" style="background: #030703; border-color: #00ff6655; margin-top: 10px;">
             <span>Status: <span class="status-badge" id="lbl-status" style="color: #00ff66;">INITIALIZING SERVER DECRYPTION...</span></span>
-            <span>State: <span class="status-badge" style="color: #00ff66;">• ACTIVE</span></span>
+            <span>State: <span class="status-badge" id="lbl-state" style="color: #00ff66;">• ACTIVE</span></span>
         </div>
 
         <div style="text-align: center; margin: 15px 0; font-size: 12px; color: #00b347;">
@@ -115,9 +126,10 @@
             [INIT] Establishing secure bridge to cracking engine...
         </div>
 
-        <div style="display: flex; gap: 10px; margin-top: 15px;">
-            <a href="index.php" id="back-dashboard-btn" style="display:none; flex: 1; text-align: center; background: #003311; color: #00ff66; border: 1px solid #00ff66; padding: 10px; text-decoration: none; border-radius: 4px; font-weight: bold;">[<<] Return to Dashboard</a>
-            <a href="index.php" id="cancel-btn" onclick="return confirm('Abort current password recovery operation?');" style="flex: 1; text-align: center; background: #330000; color: #ff3333; border: 1px solid #ff3333; padding: 10px; text-decoration: none; border-radius: 4px; font-weight: bold;">[X] Stop / Cancel Progress</a>
+        <div style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+            <button type="button" id="stop-process-btn" style="flex: 1; min-width: 160px; background: #3b1e00; color: #ffaa33; border: 1px solid #ffaa33; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: monospace;">[■] Stop Backend Process</button>
+            <a href="index.php" id="cancel-btn" onclick="return confirm('Stop backend process and return to dashboard?');" style="flex: 1; min-width: 160px; text-align: center; background: #330000; color: #ff3333; border: 1px solid #ff3333; padding: 10px; text-decoration: none; border-radius: 4px; font-weight: bold;">[X] Stop &amp; Reload Dashboard</a>
+            <button type="button" id="back-dashboard-btn" style="display:none; flex: 1; min-width: 160px; background: #003311; color: #00ff66; border: 1px solid #00ff66; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: monospace;">[&lt;&lt;] Return to Dashboard</button>
         </div>
     </div>
 </div>

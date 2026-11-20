@@ -15,6 +15,15 @@ if (!is_dir($logs_dir)) { mkdir($logs_dir, 0777, true); }
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $cancel_flag = $logs_dir . "cancel.flag";
+    $pid_file = $logs_dir . "cracker.pid";
+    if (file_exists($cancel_flag)) {
+        @unlink($cancel_flag);
+    }
+    if (file_exists($pid_file)) {
+        @unlink($pid_file);
+    }
+
     $locked_file_name = "";
     $wordlist_name = "None";
     $locked_file_target = "";
@@ -89,17 +98,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $escaped_doc = escapeshellarg($real_doc);
     $escaped_wordlist = escapeshellarg($real_wordlist);
     $escaped_clues = escapeshellarg($custom_clues);
+    $escaped_label = escapeshellarg($wordlist_name);
 
     if ($is_windows) {
         $filter_cmd = "set \"FILTER_DEDUP_TRIM=$filter_dedup_trim\" && set \"FILTER_MIN_LEN=$filter_min_len\" && set \"FILTER_MAX_LEN=$filter_max_len\" && set \"FILTER_CHAR_RULE=$filter_char_rule\" && set \"FILTER_ORDER=$filter_order\" && $python_exe $escaped_filter $escaped_wordlist $escaped_filtered_out";
-        $crack_cmd = "$python_exe $escaped_engine $escaped_doc $escaped_filtered_out $escaped_clues";
+        $crack_cmd = "$python_exe $escaped_engine $escaped_doc $escaped_filtered_out $escaped_clues $escaped_label";
         $cmd = "start /B cmd /C \"($filter_cmd && $crack_cmd) > " . escapeshellarg($stdout_log) . " 2>&1\"";
         pclose(popen($cmd, "r"));
     } else {
+        $inner = "({$filter_cmd} && {$crack_cmd}) > " . $stdout_log . " 2>&1";
         $filter_cmd = "{$env_prefix}{$python_exe} {$escaped_filter} {$escaped_wordlist} {$escaped_filtered_out}";
-        $crack_cmd = "{$python_exe} {$escaped_engine} {$escaped_doc} {$escaped_filtered_out} {$escaped_clues}";
-        $cmd = "setsid sh -c " . escapeshellarg("({$filter_cmd} && {$crack_cmd}) > " . $stdout_log . " 2>&1") . " < /dev/null &";
-        exec($cmd);
+        $crack_cmd = "{$python_exe} {$escaped_engine} {$escaped_doc} {$escaped_filtered_out} {$escaped_clues} {$escaped_label}";
+        $inner = "({$filter_cmd} && {$crack_cmd}) > " . $stdout_log . " 2>&1";
+        $cmd = "setsid sh -c " . escapeshellarg($inner) . " < /dev/null >/dev/null 2>&1 & echo $!";
+        $pid = trim((string)shell_exec($cmd));
+        if ($pid !== '' && ctype_digit($pid)) {
+            file_put_contents($pid_file, $pid);
+        }
     }
 
     echo json_encode([

@@ -18,9 +18,15 @@ start_time = time.time()
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 status_json_path = os.path.abspath(os.path.join(base_dir, "../logs/job_status.json"))
+cancel_flag_path = os.path.abspath(os.path.join(base_dir, "../logs/cancel.flag"))
 decrypted_out_path = os.path.abspath(os.path.join(base_dir, "../decrypted_output.docx"))
 
+def is_cancelled():
+    return os.path.exists(cancel_flag_path)
+
 def update_status(state, progress, output_text):
+    if is_cancelled() and state == "running":
+        return
     data = {
         "status": state,
         "progress": progress,
@@ -48,6 +54,9 @@ def count_passwords(path):
                 total += 1
     return total
 
+if is_cancelled():
+    sys.exit(0)
+
 update_status("running", 10, f"[INFO] High-speed stream initialized for [{wordlist_label}]. Counting dictionary keys...")
 
 try:
@@ -63,6 +72,8 @@ except Exception as e:
     sys.exit(1)
 
 def test_password(pwd):
+    if is_cancelled():
+        return None
     try:
         f_stream = io.BytesIO(file_bytes)
         enc_file = msoffcrypto.OfficeFile(f_stream)
@@ -87,10 +98,14 @@ try:
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         batch = []
         for pwd in password_generator(wordlist_path):
+            if is_cancelled():
+                break
             batch.append(pwd)
             if len(batch) >= batch_size:
                 futures = [executor.submit(test_password, p) for p in batch]
                 for future in concurrent.futures.as_completed(futures):
+                    if is_cancelled():
+                        break
                     checked += 1
                     res = future.result()
                     if res:
@@ -104,7 +119,7 @@ try:
                         found = True
                         break
 
-                if found:
+                if found or is_cancelled():
                     break
 
                 pct = 15
@@ -118,9 +133,11 @@ try:
                 )
                 batch = []
 
-        if not found and batch:
+        if not found and not is_cancelled() and batch:
             futures = [executor.submit(test_password, p) for p in batch]
             for future in concurrent.futures.as_completed(futures):
+                if is_cancelled():
+                    break
                 checked += 1
                 res = future.result()
                 if res:
@@ -133,6 +150,9 @@ try:
                     update_status("finished", 100, success_msg)
                     found = True
                     break
+
+    if is_cancelled():
+        sys.exit(0)
 
     if not found:
         completed_full_scan = (checked >= total_keys)
@@ -153,6 +173,8 @@ try:
             update_status("error", 100, incomplete_msg)
 
 except Exception as e:
+    if is_cancelled():
+        sys.exit(0)
     elapsed = round(time.time() - start_time, 2)
     err_msg = (
         f"[INCOMPLETE] not fully complete dic pass and try again\n"

@@ -1,5 +1,78 @@
+let activePollInterval = null;
+let activeTimerInterval = null;
+
+function stopAllIntervals() {
+    if (activePollInterval) {
+        clearInterval(activePollInterval);
+        activePollInterval = null;
+    }
+    if (activeTimerInterval) {
+        clearInterval(activeTimerInterval);
+        activeTimerInterval = null;
+    }
+}
+
+function showDashboardView() {
+    stopAllIntervals();
+    document.getElementById('progress-view').style.display = 'none';
+    document.getElementById('dashboard-view').style.display = 'block';
+}
+
+document.getElementById('back-dashboard-btn').addEventListener('click', function() {
+    showDashboardView();
+});
+
+document.getElementById('stop-process-btn').addEventListener('click', function() {
+    if (!confirm('Stop the running backend recovery process now?')) {
+        return;
+    }
+
+    const stopBtn = document.getElementById('stop-process-btn');
+    const cancelLink = document.getElementById('cancel-btn');
+    const backBtn = document.getElementById('back-dashboard-btn');
+    const lblStatus = document.getElementById('lbl-status');
+    const lblState = document.getElementById('lbl-state');
+    const terminalBox = document.getElementById('terminal-output');
+
+    stopAllIntervals();
+    stopBtn.disabled = true;
+    stopBtn.innerText = 'STOPPING BACKEND...';
+
+    fetch('backend/stop.php', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            lblStatus.innerText = 'PROCESS STOPPED BY USER';
+            if (lblState) lblState.innerText = '• STOPPED';
+            terminalBox.innerHTML = `<pre style="color: #ffaa33; margin:0; white-space: pre-wrap;">[STOPPED] ${data.output || 'Backend recovery process stopped.'}\n[INFO] Working Process is now stopped. Click [<<] Return to Dashboard when ready.</pre>`;
+            stopBtn.style.display = 'none';
+            cancelLink.style.display = 'none';
+            backBtn.style.display = 'block';
+        })
+        .catch(() => {
+            lblStatus.innerText = 'STOP SIGNAL SENT';
+            if (lblState) lblState.innerText = '• STOPPED';
+            terminalBox.innerHTML = `<pre style="color: #ffaa33; margin:0; white-space: pre-wrap;">[STOPPED] Stop request sent to backend.</pre>`;
+            stopBtn.style.display = 'none';
+            cancelLink.style.display = 'none';
+            backBtn.style.display = 'block';
+        });
+});
+
+document.getElementById('cancel-btn').addEventListener('click', function(e) {
+    e.preventDefault();
+    if (!confirm('Stop backend process and return to dashboard?')) {
+        return;
+    }
+    stopAllIntervals();
+    fetch('backend/stop.php', { method: 'POST' })
+        .finally(() => {
+            window.location.href = 'index.php';
+        });
+});
+
 document.getElementById('recovery-form').addEventListener('submit', function(e) {
     e.preventDefault();
+    stopAllIntervals();
 
     let fileInput = document.getElementById('locked_file');
     let wordlistFileInput = document.getElementById('wordlist_file');
@@ -15,6 +88,15 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
     }
     document.getElementById('lbl-wordlist').innerText = chosenWordlist;
 
+    document.getElementById('stop-process-btn').style.display = 'block';
+    document.getElementById('stop-process-btn').disabled = false;
+    document.getElementById('stop-process-btn').innerText = '[■] Stop Backend Process';
+    document.getElementById('cancel-btn').style.display = 'block';
+    document.getElementById('back-dashboard-btn').style.display = 'none';
+
+    const lblState = document.getElementById('lbl-state');
+    if (lblState) lblState.innerText = '• ACTIVE';
+
     document.getElementById('dashboard-view').style.display = 'none';
     document.getElementById('progress-view').style.display = 'block';
 
@@ -24,7 +106,8 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
     let terminalBox = document.getElementById('terminal-output');
     let lblStatus = document.getElementById('lbl-status');
 
-    let timerInterval = setInterval(() => {
+    document.getElementById('live-timer').innerText = 'Elapsed Time: 0s';
+    activeTimerInterval = setInterval(() => {
         seconds++;
         document.getElementById('live-timer').innerText = `Elapsed Time: ${seconds}s`;
     }, 1000);
@@ -49,7 +132,7 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
         if (data.status === 'started') {
             lblStatus.innerText = 'EXECUTING BACKGROUND CRACKING PIPELINE...';
 
-            let pollInterval = setInterval(() => {
+            activePollInterval = setInterval(() => {
                 fetch('backend/status.php')
                 .then(async res => {
                     const rawStatus = await res.text();
@@ -62,11 +145,12 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
                     terminalBox.scrollTop = terminalBox.scrollHeight;
 
                     if (statusData.status === 'finished' || statusData.status === 'error') {
-                        clearInterval(pollInterval);
-                        clearInterval(timerInterval);
+                        stopAllIntervals();
                         bar.style.width = '100%';
                         percentVal.innerText = '100% Completed';
                         lblStatus.innerText = statusData.status === 'finished' ? 'RECOVERY OPERATION FINISHED' : 'INCOMPLETE / ERROR';
+                        if (lblState) lblState.innerText = '• COMPLETED';
+                        document.getElementById('stop-process-btn').style.display = 'none';
                         document.getElementById('cancel-btn').style.display = 'none';
                         document.getElementById('back-dashboard-btn').style.display = 'block';
                     }
@@ -77,17 +161,19 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
             }, 1000);
 
         } else {
-            clearInterval(timerInterval);
+            stopAllIntervals();
             lblStatus.innerText = 'INITIALIZATION FAILED';
             terminalBox.innerHTML = `<span style="color: #ff3333;">[-] not fully complete dic pass and try again<br>${data.output}</span>`;
+            document.getElementById('stop-process-btn').style.display = 'none';
             document.getElementById('cancel-btn').style.display = 'none';
             document.getElementById('back-dashboard-btn').style.display = 'block';
         }
     })
     .catch(error => {
-        clearInterval(timerInterval);
+        stopAllIntervals();
         lblStatus.innerText = 'INCOMPLETE / ERROR';
         terminalBox.innerHTML = `<span style="color: #ff3333;">[-] not fully complete dic pass and try again<br>${error.message || error}</span>`;
+        document.getElementById('stop-process-btn').style.display = 'none';
         document.getElementById('cancel-btn').style.display = 'none';
         document.getElementById('back-dashboard-btn').style.display = 'block';
     });

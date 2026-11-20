@@ -13,6 +13,7 @@ if len(sys.argv) < 3:
 
 file_path = sys.argv[1]
 wordlist_path = sys.argv[2]
+wordlist_label = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3].strip() else os.path.basename(wordlist_path)
 start_time = time.time()
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -47,13 +48,18 @@ def count_passwords(path):
                 total += 1
     return total
 
-update_status("running", 10, "[INFO] High-speed stream initialized. Counting dictionary keys...")
+update_status("running", 10, f"[INFO] High-speed stream initialized for [{wordlist_label}]. Counting dictionary keys...")
 
 try:
     with open(file_path, "rb") as f:
         file_bytes = f.read()
 except Exception as e:
-    update_status("error", 100, f"[-] Error reading locked file: {e}")
+    elapsed = round(time.time() - start_time, 2)
+    update_status(
+        "error",
+        100,
+        f"[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] File read error: {e} | [TIME] {elapsed}s"
+    )
     sys.exit(1)
 
 def test_password(pwd):
@@ -67,13 +73,16 @@ def test_password(pwd):
     except Exception:
         return None
 
+checked = 0
+total_keys = 0
+found = False
+completed_full_scan = False
+
 try:
     total_keys = count_passwords(wordlist_path)
-    checked = 0
-    found = False
     batch_size = 100
 
-    update_status("running", 15, f"[INFO] Loaded {total_keys:,} keys. Starting dictionary scan...")
+    update_status("running", 15, f"[INFO] Loaded {total_keys:,} keys from [{wordlist_label}]. Starting dictionary scan...")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         batch = []
@@ -86,7 +95,11 @@ try:
                     res = future.result()
                     if res:
                         elapsed = round(time.time() - start_time, 2)
-                        success_msg = f"[SUCCESS] Password Found: [{res}]\n[METRICS] Checked: {checked:,} keys | Time: {elapsed}s"
+                        success_msg = (
+                            f"[SUCCESS] Password Recovered: [{res}]\n"
+                            f"[DICTIONARY] {wordlist_label}\n"
+                            f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s"
+                        )
                         update_status("finished", 100, success_msg)
                         found = True
                         break
@@ -101,7 +114,7 @@ try:
                 update_status(
                     "running",
                     pct,
-                    f"[STATUS] Scanning dictionary... Checked {checked:,}/{total_keys:,} keys (Elapsed: {elapsed_now}s)..."
+                    f"[STATUS] Scanning [{wordlist_label}]... Checked {checked:,}/{total_keys:,} keys (Elapsed: {elapsed_now}s)..."
                 )
                 batch = []
 
@@ -112,15 +125,38 @@ try:
                 res = future.result()
                 if res:
                     elapsed = round(time.time() - start_time, 2)
-                    success_msg = f"[SUCCESS] Password Found: [{res}]\n[METRICS] Checked: {checked:,} keys | Time: {elapsed}s"
+                    success_msg = (
+                        f"[SUCCESS] Password Recovered: [{res}]\n"
+                        f"[DICTIONARY] {wordlist_label}\n"
+                        f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s"
+                    )
                     update_status("finished", 100, success_msg)
                     found = True
                     break
 
     if not found:
+        completed_full_scan = (checked >= total_keys)
         elapsed = round(time.time() - start_time, 2)
-        not_match_msg = f"[NOT MATCH] Dictionary exhausted. Checked {checked:,} keys in {elapsed}s. Password not found in dictionary."
-        update_status("finished", 100, not_match_msg)
+        if completed_full_scan:
+            exhausted_msg = (
+                f"[EXHAUSTED] full dic complete not matching with dic and exhausted\n"
+                f"[DICTIONARY] {wordlist_label}\n"
+                f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s"
+            )
+            update_status("finished", 100, exhausted_msg)
+        else:
+            incomplete_msg = (
+                f"[INCOMPLETE] not fully complete dic pass and try again\n"
+                f"[DICTIONARY] {wordlist_label}\n"
+                f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s"
+            )
+            update_status("error", 100, incomplete_msg)
 
 except Exception as e:
-    update_status("error", 100, f"[-] Cracker Engine Exception: {e}")
+    elapsed = round(time.time() - start_time, 2)
+    err_msg = (
+        f"[INCOMPLETE] not fully complete dic pass and try again\n"
+        f"[DICTIONARY] {wordlist_label}\n"
+        f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s | Error: {e}"
+    )
+    update_status("error", 100, err_msg)

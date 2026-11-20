@@ -31,6 +31,48 @@
                 <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Custom upload overrides the dropdown selection.</div>
             </div>
 
+            <div class="form-group" style="border: 1px solid #00ff6633; padding: 12px; border-radius: 4px; background: #030a03;">
+                <label>2a / 2b Dictionary Filtering Setup (Optional):</label>
+
+                <div style="margin-top: 8px;">
+                    <label style="font-weight: normal; font-size: 12px;">
+                        <input type="checkbox" name="filter_dedup_trim" id="filter_dedup_trim" value="1" checked>
+                        Deduplicate &amp; trim
+                    </label>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 110px;">
+                        <label style="font-weight: normal; font-size: 12px;">Min Length:</label>
+                        <input type="number" name="filter_min_len" id="filter_min_len" min="1" max="64" placeholder="e.g. 4" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
+                    </div>
+                    <div style="flex: 1; min-width: 110px;">
+                        <label style="font-weight: normal; font-size: 12px;">Max Length:</label>
+                        <input type="number" name="filter_max_len" id="filter_max_len" min="1" max="64" placeholder="e.g. 12" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
+                    </div>
+                    <div style="flex: 1.4; min-width: 140px;">
+                        <label style="font-weight: normal; font-size: 12px;">Pre-filter by character rules:</label>
+                        <select name="filter_char_rule" id="filter_char_rule" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
+                            <option value="any" selected>All Characters</option>
+                            <option value="numeric">Numbers Only (0-9)</option>
+                            <option value="alpha">Letters Only (A-Z, a-z)</option>
+                            <option value="alnum">Alphanumeric (Letters + Numbers)</option>
+                            <option value="lower">Lowercase Only</option>
+                            <option value="no_spaces">No Spaces</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-top: 8px;">
+                    <label style="font-weight: normal; font-size: 12px;">Order by likelihood:</label>
+                    <select name="filter_order" id="filter_order" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
+                        <option value="default" selected>Default Dictionary Order</option>
+                        <option value="short_first">Shorter Passwords First</option>
+                        <option value="common_patterns">Common Word+Number Patterns First</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label>3. Custom Clues / Keywords (Optional):</label>
                 <textarea name="custom_clues" id="custom_clues" placeholder="Type words or numbers separated by commas, e.g., jitu, project, 2026, admin"></textarea>

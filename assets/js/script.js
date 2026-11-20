@@ -30,6 +30,8 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
     }, 1000);
 
     let formData = new FormData(this);
+    let dedupCheckbox = document.getElementById('filter_dedup_trim');
+    formData.set('filter_dedup_trim', (dedupCheckbox && dedupCheckbox.checked) ? '1' : '0');
 
     fetch('backend/process.php', {
         method: 'POST',

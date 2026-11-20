@@ -1,4 +1,5 @@
 <?php
+ob_start();
 require_once 'error_logger.php';
 
 set_time_limit(0);
@@ -12,7 +13,15 @@ if (!is_dir($upload_dir)) { mkdir($upload_dir, 0777, true); }
 if (!is_dir($wordlist_dir)) { mkdir($wordlist_dir, 0777, true); }
 if (!is_dir($logs_dir)) { mkdir($logs_dir, 0777, true); }
 
-header('Content-Type: application/json');
+function respond_json($payload, $code = 200) {
+    http_response_code($code);
+    if (ob_get_length()) {
+        ob_clean();
+    }
+    header('Content-Type: application/json');
+    echo json_encode($payload);
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cancel_flag = $logs_dir . "cancel.flag";
@@ -32,12 +41,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_FILES['locked_file']) && $_FILES['locked_file']['error'] == 0) {
         $locked_file_name = basename($_FILES["locked_file"]["name"]);
         $locked_file_target = $upload_dir . $locked_file_name;
-        move_uploaded_file($_FILES["locked_file"]["tmp_name"], $locked_file_target);
+        if (!move_uploaded_file($_FILES["locked_file"]["tmp_name"], $locked_file_target)) {
+            $err_msg = "Failed to save uploaded locked file.";
+            log_system_error("process.php", $err_msg);
+            respond_json(['status' => 'error', 'output' => $err_msg]);
+        }
     } else {
         $err_msg = "Locked file upload failed or missing.";
         log_system_error("process.php", $err_msg);
-        echo json_encode(['status' => 'error', 'output' => $err_msg]);
-        exit;
+        respond_json(['status' => 'error', 'output' => $err_msg]);
     }
 
     if (isset($_FILES['wordlist_file']) && $_FILES['wordlist_file']['error'] == 0) {
@@ -106,7 +118,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cmd = "start /B cmd /C \"($filter_cmd && $crack_cmd) > " . escapeshellarg($stdout_log) . " 2>&1\"";
         pclose(popen($cmd, "r"));
     } else {
-        $inner = "({$filter_cmd} && {$crack_cmd}) > " . $stdout_log . " 2>&1";
         $filter_cmd = "{$env_prefix}{$python_exe} {$escaped_filter} {$escaped_wordlist} {$escaped_filtered_out}";
         $crack_cmd = "{$python_exe} {$escaped_engine} {$escaped_doc} {$escaped_filtered_out} {$escaped_clues} {$escaped_label}";
         $inner = "({$filter_cmd} && {$crack_cmd}) > " . $stdout_log . " 2>&1";
@@ -117,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    echo json_encode([
+    respond_json([
         'status' => 'started',
         'file' => $locked_file_name,
         'wordlist' => $wordlist_name

@@ -13,7 +13,9 @@ if len(sys.argv) < 3:
 
 file_path = sys.argv[1]
 wordlist_path = sys.argv[2]
-wordlist_label = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3].strip() else os.path.basename(wordlist_path)
+cli_label = sys.argv[3].strip() if len(sys.argv) > 3 and sys.argv[3].strip() else ""
+env_label = os.environ.get("WORDLIST_LABEL", "").strip()
+wordlist_label = cli_label or env_label or os.path.basename(wordlist_path)
 start_time = time.time()
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -46,18 +48,10 @@ def password_generator(path):
             if pwd:
                 yield pwd
 
-def count_passwords(path):
-    total = 0
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        for line in f:
-            if line.strip():
-                total += 1
-    return total
-
 if is_cancelled():
     sys.exit(0)
 
-update_status("running", 10, f"[INFO] High-speed stream initialized for [{wordlist_label}]. Counting dictionary keys...")
+update_status("running", 10, f"[INFO] High-speed stream initialized for [{wordlist_label}]. Loading document into memory...")
 
 try:
     with open(file_path, "rb") as f:
@@ -85,23 +79,30 @@ def test_password(pwd):
         return None
 
 checked = 0
-total_keys = 0
 found = False
-completed_full_scan = False
+reached_eof = False
 
 try:
-    total_keys = count_passwords(wordlist_path)
     batch_size = 100
-
-    update_status("running", 15, f"[INFO] Loaded {total_keys:,} keys from [{wordlist_label}]. Starting dictionary scan...")
+    update_status("running", 15, f"[INFO] Streaming keys from [{wordlist_label}]...")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         batch = []
-        for pwd in password_generator(wordlist_path):
+        stream_iter = password_generator(wordlist_path)
+
+        while True:
             if is_cancelled():
                 break
-            batch.append(pwd)
-            if len(batch) >= batch_size:
+
+            batch.clear()
+            for _ in range(batch_size):
+                try:
+                    batch.append(next(stream_iter))
+                except StopIteration:
+                    reached_eof = True
+                    break
+
+            if batch:
                 futures = [executor.submit(test_password, p) for p in batch]
                 for future in concurrent.futures.as_completed(futures):
                     if is_cancelled():
@@ -110,10 +111,11 @@ try:
                     res = future.result()
                     if res:
                         elapsed = round(time.time() - start_time, 2)
+                        rate = round(checked / elapsed, 2) if elapsed > 0 else checked
                         success_msg = (
                             f"[SUCCESS] Password Recovered: [{res}]\n"
                             f"[DICTIONARY] {wordlist_label}\n"
-                            f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s"
+                            f"[METRICS] Checked: {checked:,} keys ({rate} keys/s) | Time: {elapsed}s"
                         )
                         update_status("finished", 100, success_msg)
                         found = True
@@ -122,53 +124,36 @@ try:
                 if found or is_cancelled():
                     break
 
-                pct = 15
-                if total_keys > 0:
-                    pct = min(95, 15 + int((checked / total_keys) * 80))
-                elapsed_now = round(time.time() - start_time, 1)
+                elapsed_now = max(0.1, round(time.time() - start_time, 1))
+                rate_now = round(checked / elapsed_now, 2)
+                pct = min(95, 15 + (checked // 250))
                 update_status(
                     "running",
                     pct,
-                    f"[STATUS] Scanning [{wordlist_label}]... Checked {checked:,}/{total_keys:,} keys (Elapsed: {elapsed_now}s)..."
+                    f"[STATUS] Scanning [{wordlist_label}]... Checked {checked:,} keys ({rate_now} keys/s | Elapsed: {elapsed_now}s)..."
                 )
-                batch = []
 
-        if not found and not is_cancelled() and batch:
-            futures = [executor.submit(test_password, p) for p in batch]
-            for future in concurrent.futures.as_completed(futures):
-                if is_cancelled():
-                    break
-                checked += 1
-                res = future.result()
-                if res:
-                    elapsed = round(time.time() - start_time, 2)
-                    success_msg = (
-                        f"[SUCCESS] Password Recovered: [{res}]\n"
-                        f"[DICTIONARY] {wordlist_label}\n"
-                        f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s"
-                    )
-                    update_status("finished", 100, success_msg)
-                    found = True
-                    break
+            if reached_eof:
+                break
 
     if is_cancelled():
         sys.exit(0)
 
     if not found:
-        completed_full_scan = (checked >= total_keys)
         elapsed = round(time.time() - start_time, 2)
-        if completed_full_scan:
+        rate = round(checked / elapsed, 2) if elapsed > 0 else 0
+        if reached_eof:
             exhausted_msg = (
                 f"[EXHAUSTED] full dic complete not matching with dic and exhausted\n"
                 f"[DICTIONARY] {wordlist_label}\n"
-                f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s"
+                f"[METRICS] Checked: {checked:,} keys ({rate} keys/s) | Time: {elapsed}s"
             )
             update_status("finished", 100, exhausted_msg)
         else:
             incomplete_msg = (
                 f"[INCOMPLETE] not fully complete dic pass and try again\n"
                 f"[DICTIONARY] {wordlist_label}\n"
-                f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s"
+                f"[METRICS] Checked: {checked:,} keys ({rate} keys/s) | Time: {elapsed}s"
             )
             update_status("error", 100, incomplete_msg)
 
@@ -179,6 +164,6 @@ except Exception as e:
     err_msg = (
         f"[INCOMPLETE] not fully complete dic pass and try again\n"
         f"[DICTIONARY] {wordlist_label}\n"
-        f"[METRICS] Checked: {checked:,}/{total_keys:,} keys | Time: {elapsed}s | Error: {e}"
+        f"[METRICS] Checked: {checked:,} keys | Time: {elapsed}s | Error: {e}"
     )
     update_status("error", 100, err_msg)

@@ -11,6 +11,7 @@ if len(sys.argv) < 4:
 locked_file = sys.argv[1]
 wordlist_path = sys.argv[2]
 custom_clues = sys.argv[3]
+wordlist_label = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4].strip() else os.path.basename(wordlist_path)
 
 executed_module = "None"
 engine_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,7 +37,14 @@ try:
         executed_module = "wordlist_cracker.py"
         sub_script = os.path.join(engine_dir, "wordlist_cracker.py")
         print(f"[MASTER] Initiating High-Speed Wordlist Cracker...")
-        res = subprocess.run([py_cmd, sub_script, locked_file, wordlist_path], capture_output=True, text=True)
+        child_env = os.environ.copy()
+        child_env["WORDLIST_LABEL"] = wordlist_label
+        res = subprocess.run(
+            [py_cmd, sub_script, locked_file, wordlist_path, wordlist_label],
+            capture_output=True,
+            text=True,
+            env=child_env
+        )
         print(res.stdout)
         if res.stderr:
             print(f"[-] Sub-Module stderr: {res.stderr}")

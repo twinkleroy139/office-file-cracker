@@ -185,6 +185,7 @@ def extract_office_hash(file_path: str):
             tag = _local_name(elem.tag).lower()
             if tag == "keydata":
                 key_data_salt = _attr_ci(elem.attrib, "saltValue", default=key_data_salt)
+                block_size = _attr_ci(elem.attrib, "blockSize", default=block_size)
             elif tag == "passwordkey":
                 pass_salt = _attr_ci(elem.attrib, "saltValue", default=pass_salt)
                 spin_count = _attr_ci(elem.attrib, "spinCount", default=spin_count)
@@ -192,6 +193,11 @@ def extract_office_hash(file_path: str):
                 key_bits = _attr_ci(elem.attrib, "keyBits", default=key_bits)
                 hash_alg = _attr_ci(elem.attrib, "hashAlgorithm", default=hash_alg).upper()
             elif tag == "encryptedkey":
+                pass_salt = _attr_ci(elem.attrib, "saltValue", default=pass_salt)
+                spin_count = _attr_ci(elem.attrib, "spinCount", default=spin_count)
+                block_size = _attr_ci(elem.attrib, "blockSize", default=block_size)
+                key_bits = _attr_ci(elem.attrib, "keyBits", default=key_bits)
+                hash_alg = _attr_ci(elem.attrib, "hashAlgorithm", default=hash_alg).upper()
                 enc_verifier_b64 = _attr_ci(
                     elem.attrib,
                     "encryptedVerifierHashInput",

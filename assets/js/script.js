@@ -79,6 +79,15 @@ document.getElementById('cancel-btn').addEventListener('click', function(e) {
         });
 });
 
+document.getElementById('export-hash-btn').addEventListener('click', function() {
+    if (!currentJobId) {
+        alert('No active job ID available yet for hash export.');
+        return;
+    }
+    const exportUrl = `backend/export_hash.php?job_id=${encodeURIComponent(currentJobId)}`;
+    window.open(exportUrl, '_blank');
+});
+
 document.getElementById('recovery-form').addEventListener('submit', function(e) {
     e.preventDefault();
     stopAllIntervals();
@@ -103,6 +112,13 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
     document.getElementById('stop-process-btn').innerText = '[■] Stop Backend Process';
     document.getElementById('cancel-btn').style.display = 'block';
     document.getElementById('back-dashboard-btn').style.display = 'none';
+
+    const exportHashBtn = document.getElementById('export-hash-btn');
+    if (exportHashBtn) {
+        exportHashBtn.style.display = 'none';
+        exportHashBtn.disabled = false;
+        exportHashBtn.innerText = '[⬇] Export Hash for Local GPU Cracking (.hash)';
+    }
 
     const lblState = document.getElementById('lbl-state');
     if (lblState) lblState.innerText = '• ACTIVE';
@@ -143,6 +159,9 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
     .then(data => {
         if (data.status === 'started') {
             currentJobId = data.job_id || null;
+            if (currentJobId && exportHashBtn) {
+                exportHashBtn.style.display = 'block';
+            }
             lblStatus.innerText = 'EXECUTING BACKGROUND CRACKING PIPELINE...';
             const statusUrl = currentJobId
                 ? `backend/status.php?job_id=${encodeURIComponent(currentJobId)}`

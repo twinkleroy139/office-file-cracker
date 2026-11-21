@@ -4,10 +4,11 @@ import struct
 import base64
 import binascii
 import xml.etree.ElementTree as ET
+import msoffcrypto
+import io
 
 sys.stdout.reconfigure(line_buffering=True)
 
-# Minimal pure-Python CFB/OLE reader for standard Office encrypted files
 OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 ENDOFCHAIN = 0xFFFFFFFE
 FREESECT = 0xFFFFFFFF
@@ -108,16 +109,35 @@ def _local_name(tag: str) -> str:
     return tag.split("}", 1)[-1] if "}" in tag else tag
 
 
+def _attr_ci(attrib: dict, *candidates: str, default: str = "") -> str:
+    lower_map = {k.lower(): v for k, v in attrib.items()}
+    for cand in candidates:
+        val = lower_map.get(cand.lower())
+        if val is not None and str(val).strip() != "":
+            return str(val).strip()
+    return default
+
+
 def extract_office_hash(file_path: str):
     with open(file_path, "rb") as f:
         raw = f.read()
+
+    # Quick check via msoffcrypto so non-encrypted files are reported clearly
+    try:
+        probe = msoffcrypto.OfficeFile(io.BytesIO(raw))
+        if not probe.is_encrypted():
+            raise ValueError("Document is not password-encrypted.")
+    except ValueError:
+        raise
+    except Exception:
+        pass
 
     ole = OleReader(raw)
     enc_info = ole.get_stream("EncryptionInfo")
     if not enc_info or len(enc_info) < 8:
         raise ValueError("Missing EncryptionInfo stream; unsupported or unencrypted format.")
 
-    major, minor, flags = struct.unpack_from("<HHI", enc_info, 0)
+    major, minor, _ = struct.unpack_from("<HHI", enc_info, 0)
     payload = enc_info[8:]
 
     # Standard (ECMA-376) encryption -> hashcat mode 9400
@@ -152,7 +172,6 @@ def extract_office_hash(file_path: str):
         root = ET.fromstring(xml_text)
 
         key_data_salt = ""
-        key_data_block_size = "16"
         pass_salt = ""
         spin_count = "100000"
         block_size = "16"
@@ -163,20 +182,32 @@ def extract_office_hash(file_path: str):
         enc_key_b64 = ""
 
         for elem in root.iter():
-            tag = _local_name(elem.tag)
-            if tag == "keyData":
-                key_data_salt = elem.attrib.get("saltValue", key_data_salt)
-                key_data_block_size = elem.attrib.get("blockSize", key_data_block_size)
-            elif tag == "passwordKey":
-                pass_salt = elem.attrib.get("saltValue", pass_salt)
-                spin_count = elem.attrib.get("spinCount", spin_count)
-                block_size = elem.attrib.get("blockSize", block_size)
-                key_bits = elem.attrib.get("keyBits", key_bits)
-                hash_alg = elem.attrib.get("hashAlgorithm", hash_alg).upper()
-            elif tag == "encryptedKey":
-                enc_verifier_b64 = elem.attrib.get("encryptedVerifierHashInput", enc_verifier_b64)
-                enc_verifier_hash_b64 = elem.attrib.get("encryptedVerifierHashValue", enc_verifier_hash_b64)
-                enc_key_b64 = elem.attrib.get("encryptedKeyValue", enc_key_b64)
+            tag = _local_name(elem.tag).lower()
+            if tag == "keydata":
+                key_data_salt = _attr_ci(elem.attrib, "saltValue", default=key_data_salt)
+            elif tag == "passwordkey":
+                pass_salt = _attr_ci(elem.attrib, "saltValue", default=pass_salt)
+                spin_count = _attr_ci(elem.attrib, "spinCount", default=spin_count)
+                block_size = _attr_ci(elem.attrib, "blockSize", default=block_size)
+                key_bits = _attr_ci(elem.attrib, "keyBits", default=key_bits)
+                hash_alg = _attr_ci(elem.attrib, "hashAlgorithm", default=hash_alg).upper()
+            elif tag == "encryptedkey":
+                enc_verifier_b64 = _attr_ci(
+                    elem.attrib,
+                    "encryptedVerifierHashInput",
+                    "encryptedVerifier",
+                    default=enc_verifier_b64
+                )
+                enc_verifier_hash_b64 = _attr_ci(
+                    elem.attrib,
+                    "encryptedVerifierHashValue",
+                    default=enc_verifier_hash_b64
+                )
+                enc_key_b64 = _attr_ci(
+                    elem.attrib,
+                    "encryptedKeyValue",
+                    default=enc_key_b64
+                )
 
         if pass_salt and enc_verifier_b64 and enc_verifier_hash_b64 and enc_key_b64:
             salt_hex = binascii.hexlify(base64.b64decode(pass_salt)).decode()
@@ -193,7 +224,13 @@ def extract_office_hash(file_path: str):
             )
             return mode, h_str
 
-    raise ValueError("Unsupported Office encryption header format for hashcat extraction.")
+        raise ValueError(
+            f"Agile XML parsed (major={major}, minor={minor}) but missing expected key attributes "
+            f"(salt={bool(pass_salt)}, verifier_in={bool(enc_verifier_b64)}, "
+            f"verifier_hash={bool(enc_verifier_hash_b64)}, enc_key={bool(enc_key_b64)})."
+        )
+
+    raise ValueError(f"Unsupported Office encryption header format (major={major}, minor={minor}).")
 
 
 def main():

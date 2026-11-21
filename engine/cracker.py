@@ -32,11 +32,13 @@ try:
         if res.returncode == 0:
             sys.exit(0)
 
-    # Step 2: Run high-speed wordlist engine
+    # Step 2: Run Phase 1 metadata-cached wordlist engine (fallback to wordlist_cracker.py if needed)
     if wordlist_path and os.path.exists(wordlist_path):
-        executed_module = "wordlist_cracker.py"
-        sub_script = os.path.join(engine_dir, "wordlist_cracker.py")
-        print(f"[MASTER] Initiating High-Speed Wordlist Cracker...")
+        phase1_script = os.path.join(engine_dir, "wordlist_cracker_phase1.py")
+        fallback_script = os.path.join(engine_dir, "wordlist_cracker.py")
+        sub_script = phase1_script if os.path.exists(phase1_script) else fallback_script
+        executed_module = os.path.basename(sub_script)
+        print(f"[MASTER] Initiating High-Speed Wordlist Cracker ({executed_module})...")
         child_env = os.environ.copy()
         child_env["WORDLIST_LABEL"] = wordlist_label
         res = subprocess.run(

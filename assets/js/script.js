@@ -105,11 +105,13 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
     let percentVal = document.getElementById('percent-val');
     let terminalBox = document.getElementById('terminal-output');
     let lblStatus = document.getElementById('lbl-status');
+    let liveTimerEl = document.getElementById('live-timer');
+    let speedIndicatorEl = document.getElementById('speed-indicator');
 
-    document.getElementById('live-timer').innerText = 'Elapsed Time: 0s';
+    liveTimerEl.innerText = 'Elapsed Time: 0s';
     activeTimerInterval = setInterval(() => {
         seconds++;
-        document.getElementById('live-timer').innerText = `Elapsed Time: ${seconds}s`;
+        liveTimerEl.innerText = `Elapsed Time: ${seconds}s`;
     }, 1000);
 
     let formData = new FormData(this);
@@ -139,10 +141,25 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
                     return JSON.parse(rawStatus);
                 })
                 .then(statusData => {
+                    const outText = statusData.output || '';
                     bar.style.width = statusData.progress + '%';
                     percentVal.innerText = `${statusData.progress}% Scanning...`;
-                    terminalBox.innerHTML = `<pre style="color: #00ff66; margin:0; white-space: pre-wrap;">${statusData.output}</pre>`;
+                    terminalBox.innerHTML = `<pre style="color: #00ff66; margin:0; white-space: pre-wrap;">${outText}</pre>`;
                     terminalBox.scrollTop = terminalBox.scrollHeight;
+
+                    const elapsedMatch = outText.match(/Elapsed:\s*([\d.]+)s/) || outText.match(/Time:\s*([\d.]+)s/);
+                    if (elapsedMatch && elapsedMatch[1]) {
+                        const backendSec = Math.floor(parseFloat(elapsedMatch[1]));
+                        if (!Number.isNaN(backendSec) && backendSec >= seconds) {
+                            seconds = backendSec;
+                            liveTimerEl.innerText = `Elapsed Time: ${seconds}s`;
+                        }
+                    }
+
+                    const rateMatch = outText.match(/\(([\d.]+\s*keys\/s\s*\|\s*[\d.]+\s*ms\/key)\)/);
+                    if (speedIndicatorEl && rateMatch && rateMatch[1]) {
+                        speedIndicatorEl.innerText = rateMatch[1];
+                    }
 
                     if (statusData.status === 'finished' || statusData.status === 'error') {
                         stopAllIntervals();

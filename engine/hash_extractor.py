@@ -10,6 +10,7 @@ import io
 sys.stdout.reconfigure(line_buffering=True)
 
 OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+ZIP_MAGIC = b"PK\x03\x04"
 ENDOFCHAIN = 0xFFFFFFFE
 FREESECT = 0xFFFFFFFF
 
@@ -118,23 +119,68 @@ def _attr_ci(attrib: dict, *candidates: str, default: str = "") -> str:
     return default
 
 
+def _detect_file_format_note(raw: bytes, filename: str) -> str:
+    fn_lower = filename.lower()
+    if raw.startswith(OLE_MAGIC):
+        if fn_lower.endswith(".xlsx") or fn_lower.endswith(".docx"):
+            return "File uses legacy OLE compound container (common in Excel 97-2003 / .xls renamed to .xlsx)."
+        return "File uses OLE binary structure."
+    elif raw.startswith(ZIP_MAGIC):
+        return "File uses standard OOXML ZIP archive format."
+    elif b"Autosaved" in filename.encode() or b"Recovered" in filename.encode():
+        return "File was created by Excel Auto-Recovery; temporary headers may be corrupted or missing encryption metadata."
+    return "File magic bytes do not match a standard encrypted Office container."
+
+
 def extract_office_hash(file_path: str):
+    filename = os.path.basename(file_path)
     with open(file_path, "rb") as f:
         raw = f.read()
 
+    if len(raw) < 16:
+        raise ValueError(
+            f"File is too small or truncated ({len(raw)} bytes).\n"
+            f"[WHY] The uploaded file is incomplete or unreadable.\n"
+            f"[HOW TO FIX] Re-export or save a fresh copy of the document.\n"
+            f"[NEXT STEP] Upload a non-corrupted document and try again."
+        )
+
+    # Step 1: Probe via msoffcrypto to verify encryption state
     try:
         probe = msoffcrypto.OfficeFile(io.BytesIO(raw))
         if not probe.is_encrypted():
-            raise ValueError("Document is not password-encrypted.")
+            raise ValueError(
+                f"Document is not password-encrypted.\n"
+                f"[WHY] The file does not require an open password (it may only have sheet/workbook edit protection).\n"
+                f"[HOW TO FIX] Open the file in Excel/Word -> File -> Info -> Protect Document -> Encrypt with Password.\n"
+                f"[NEXT STEP] Save with a document open password and re-upload."
+            )
     except ValueError:
         raise
     except Exception:
         pass
 
-    ole = OleReader(raw)
-    enc_info = ole.get_stream("EncryptionInfo")
+    # Step 2: Attempt OLE stream reading for EncryptionInfo
+    try:
+        ole = OleReader(raw)
+        enc_info = ole.get_stream("EncryptionInfo")
+    except Exception as ole_err:
+        fmt_note = _detect_file_format_note(raw, filename)
+        raise ValueError(
+            f"Invalid or corrupted Office file container structure.\n"
+            f"[WHY] The header/structure is not a valid encrypted Office container. ({fmt_note})\n"
+            f"[HOW TO FIX] 1) Check if this is an autosaved/recovered temp file or a renamed legacy .xls file.\n"
+            f"            2) Open the file in Excel/LibreOffice and save it cleanly as a standard encrypted .xlsx/.docx.\n"
+            f"[NEXT STEP] Re-upload the newly saved clean file and try again."
+        )
+
     if not enc_info or len(enc_info) < 8:
-        raise ValueError("Missing EncryptionInfo stream; unsupported or unencrypted format.")
+        raise ValueError(
+            f"Missing or corrupted EncryptionInfo stream.\n"
+            f"[WHY] The file container exists but lacks standard open-password encryption metadata (often seen in auto-recovered or third-party exported files).\n"
+            f"[HOW TO FIX] Open the document in Microsoft Excel or Word, clear any protection, and set a new open password via File -> Encrypt with Password.\n"
+            f"[NEXT STEP] Upload the cleanly saved copy and try again."
+        )
 
     major, minor, _ = struct.unpack_from("<HHI", enc_info, 0)
     payload = enc_info[8:]
@@ -168,7 +214,16 @@ def extract_office_hash(file_path: str):
         end_idx = xml_text.rfind(">")
         if end_idx != -1:
             xml_text = xml_text[:end_idx + 1]
-        root = ET.fromstring(xml_text)
+
+        try:
+            root = ET.fromstring(xml_text)
+        except ET.ParseError as parse_err:
+            raise ValueError(
+                f"Invalid or corrupted XML encryption header.\n"
+                f"[WHY] The file contains malformed encryption metadata ({parse_err}). Often caused by Auto-Recovery metadata corruption or partial downloads.\n"
+                f"[HOW TO FIX] Open the file in Excel or LibreOffice, perform 'Save As', and re-apply password encryption.\n"
+                f"[NEXT STEP] Export a clean copy and try again."
+            )
 
         pass_salt = ""
         spin_count = "100000"
@@ -227,12 +282,18 @@ def extract_office_hash(file_path: str):
             return mode, h_str
 
         raise ValueError(
-            f"Agile XML parsed (major={major}, minor={minor}) but missing expected key attributes "
-            f"(salt={bool(pass_salt)}, verifier_in={bool(enc_verifier_b64)}, "
-            f"verifier_hash={bool(enc_verifier_hash_b64)}, enc_key={bool(enc_key_b64)})."
+            f"Agile XML metadata is incomplete.\n"
+            f"[WHY] Encryption XML header is missing key attributes (salt={bool(pass_salt)}, verifier={bool(enc_verifier_b64)}, key={bool(enc_key_b64)}).\n"
+            f"[HOW TO FIX] Re-save the file in standard Excel/Word format to regenerate proper encryption attributes.\n"
+            f"[NEXT STEP] Upload the newly saved file and try again."
         )
 
-    raise ValueError(f"Unsupported Office encryption header format (major={major}, minor={minor}).")
+    raise ValueError(
+        f"Unsupported Office encryption header (major={major}, minor={minor}).\n"
+        f"[WHY] The document uses a non-standard or proprietary encryption format.\n"
+        f"[HOW TO FIX] Open in Excel/Word and save as a standard encrypted .xlsx or .docx file.\n"
+        f"[NEXT STEP] Re-upload the standard file and try again."
+    )
 
 
 def main():

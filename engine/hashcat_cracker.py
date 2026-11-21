@@ -119,7 +119,7 @@ if not hashcat_bin:
     update_status(
         "error",
         100,
-        f"[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] hashcat binary not found in PATH | [TIME] {elapsed}s"
+        f"[-] Header inspection error\n[DICT] {wordlist_label} | [REASON] hashcat binary not found in PATH | [TIME] {elapsed}s"
     )
     sys.exit(1)
 
@@ -128,7 +128,7 @@ if not os.path.exists(wordlist_path) or os.path.getsize(wordlist_path) == 0:
     update_status(
         "error",
         100,
-        f"[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] Filtered wordlist empty or missing | [TIME] {elapsed}s"
+        f"[-] Header inspection error\n[DICT] {wordlist_label} | [REASON] Filtered wordlist empty or missing | [TIME] {elapsed}s"
     )
     sys.exit(1)
 
@@ -140,10 +140,11 @@ try:
         hf.write(hash_str + "\n")
 except Exception as e:
     elapsed = round(time.time() - start_time, 2)
+    err_formatted = str(e).strip()
     update_status(
         "error",
         100,
-        f"[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] Hash extraction error: {e} | [TIME] {elapsed}s"
+        f"[-] FILE HEADER / ENCRYPTION ERROR\n[FILE] {os.path.basename(file_path)}\n{err_formatted}\n[TIME] {elapsed}s"
     )
     sys.exit(1)
 
@@ -304,10 +305,10 @@ except Exception as e:
     if is_cancelled():
         sys.exit(0)
     elapsed = round(time.time() - start_time, 2)
-    rate, ms_per_key = format_timing(0, elapsed)
+    err_formatted = str(e).strip()
     update_status(
         "error",
         100,
-        f"[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] {e} | [TIME] {elapsed}s"
+        f"[-] FILE ERROR\n[FILE] {os.path.basename(file_path)}\n{err_formatted}\n[TIME] {elapsed}s"
     )
     sys.exit(1)

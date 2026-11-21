@@ -14,7 +14,7 @@
         </div>
 
         <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 11px; color: #00b347; padding: 8px 10px; margin-bottom: 14px; border: 1px solid #00ff6633; border-radius: 4px; background: #030903;">
-            <span><strong>Pipeline:</strong> Clue Mangling &rarr; Dictionary Filter &rarr; Decrypt Engine</span>
+            <span><strong>Pipeline:</strong> Clue Mangling (Recommended First) &rarr; Dictionary Filter &rarr; Decrypt Engine</span>
             <span><strong>Status:</strong> Successfully Working</span>
             <span><strong>Queue:</strong> Idle &amp; Ready</span>
         </div>
@@ -26,24 +26,33 @@
                 <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Supported encrypted Office formats: Word (.docx) and Excel (.xlsx).</div>
             </div>
 
-            <div class="form-group">
-                <label>2a. Select Pre-Installed Server Wordlist:</label>
-                <select name="wordlist_select" id="wordlist_select" style="width: 100%; padding: 10px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
-                    <option value="">-- None (Skip server wordlist) --</option>
-                    <option value="10k-most-common.txt" selected>10k Most Common Passwords (Recommended & Fast)</option>
-                    <option value="20k.txt">20k Expanded Passwords</option>
-                </select>
-                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Select none if you are using custom upload or clues only.</div>
+            <div class="form-group" style="border: 1px solid #00ff6666; padding: 12px; border-radius: 4px; background: #041206;">
+                <label>2. Custom Clues / Keywords (Recommended First Step):</label>
+                <textarea name="custom_clues" id="custom_clues" placeholder="Type words or numbers separated by commas, e.g., jitu, project, 2026, admin"></textarea>
+                <div class="note" style="color: #00ff66; font-size: 11px; margin-top: 6px;">
+                    <strong>Tip:</strong> Providing 2-3 clues (name, year, pet, leet variants etc) can cut cracking time by 10-100x compared to a full dictionary scan.
+                </div>
+                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Clues are mangled and tested first; wordlist scanning below acts as the fallback if clues don't work.</div>
             </div>
 
             <div class="form-group">
-                <label>2b. OR Upload Custom Password Bank Text File (.txt) (Optional):</label>
+                <label>3a. Fallback Pre-Installed Server Wordlist (If Clues Don't Work):</label>
+                <select name="wordlist_select" id="wordlist_select" style="width: 100%; padding: 10px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
+                    <option value="">-- None (Skip server wordlist) --</option>
+                    <option value="10k-most-common.txt" selected>10k Most Common Passwords (Recommended Fallback)</option>
+                    <option value="20k.txt">20k Expanded Passwords</option>
+                </select>
+                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Used only if custom clues do not match (or select None to test clues only).</div>
+            </div>
+
+            <div class="form-group">
+                <label>3b. OR Upload Custom Password Bank Text File (.txt) (Fallback Option):</label>
                 <input type="file" name="wordlist_file" id="wordlist_file">
-                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Custom upload overrides the dropdown selection.</div>
+                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Custom upload overrides the fallback dropdown selection.</div>
             </div>
 
             <div class="form-group" style="border: 1px solid #00ff6633; padding: 12px; border-radius: 4px; background: #030a03;">
-                <label>2a / 2b Dictionary Filtering Setup (Optional):</label>
+                <label>3a / 3b Fallback Dictionary Filtering Setup (Smarter Defaults):</label>
 
                 <div style="margin-top: 8px;">
                     <label style="font-weight: normal; font-size: 12px;">
@@ -55,21 +64,21 @@
                 <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 110px;">
                         <label style="font-weight: normal; font-size: 12px;">Min Length:</label>
-                        <input type="number" name="filter_min_len" id="filter_min_len" min="1" max="64" placeholder="e.g. 4" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
+                        <input type="number" name="filter_min_len" id="filter_min_len" min="1" max="64" value="4" placeholder="e.g. 4" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
                     </div>
                     <div style="flex: 1; min-width: 110px;">
                         <label style="font-weight: normal; font-size: 12px;">Max Length:</label>
-                        <input type="number" name="filter_max_len" id="filter_max_len" min="1" max="64" placeholder="e.g. 12" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
+                        <input type="number" name="filter_max_len" id="filter_max_len" min="1" max="64" value="16" placeholder="e.g. 16" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
                     </div>
                     <div style="flex: 1.4; min-width: 140px;">
                         <label style="font-weight: normal; font-size: 12px;">Pre-filter by character rules:</label>
                         <select name="filter_char_rule" id="filter_char_rule" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
-                            <option value="any" selected>All Characters</option>
+                            <option value="any">All Characters</option>
                             <option value="numeric">Numbers Only (0-9)</option>
                             <option value="alpha">Letters Only (A-Z, a-z)</option>
                             <option value="alnum">Alphanumeric (Letters + Numbers)</option>
                             <option value="lower">Lowercase Only</option>
-                            <option value="no_spaces">No Spaces</option>
+                            <option value="no_spaces" selected>No Spaces (Recommended)</option>
                         </select>
                     </div>
                 </div>
@@ -77,17 +86,12 @@
                 <div style="margin-top: 8px;">
                     <label style="font-weight: normal; font-size: 12px;">Order by likelihood:</label>
                     <select name="filter_order" id="filter_order" style="width: 100%; padding: 6px; background: #030703; color: #00ff66; border: 1px solid #00ff6644; border-radius: 4px; font-family: monospace;">
-                        <option value="default" selected>Default Dictionary Order</option>
+                        <option value="default">Default Dictionary Order</option>
                         <option value="short_first">Shorter Passwords First</option>
-                        <option value="common_patterns">Common Word+Number Patterns First</option>
+                        <option value="common_patterns" selected>Common Word+Number Patterns First (Recommended)</option>
                     </select>
                 </div>
-            </div>
-
-            <div class="form-group">
-                <label>3. Custom Clues / Keywords (Optional):</label>
-                <textarea name="custom_clues" id="custom_clues" placeholder="Type words or numbers separated by commas, e.g., jitu, project, 2026, admin"></textarea>
-                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 4px;">Words will be mixed and tested dynamically before the wordlist.</div>
+                <div class="note" style="color: #00b347; font-size: 11px; margin-top: 6px;">Tighter defaults trim unlikely candidates early; clear or change any field before starting if needed.</div>
             </div>
 
             <button type="submit" id="start-btn">START RECOVERY PROCESS</button>

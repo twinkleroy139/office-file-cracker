@@ -16,17 +16,20 @@ if len(sys.argv) < 3:
 file_path = sys.argv[1]
 wordlist_path = sys.argv[2]
 cli_label = sys.argv[3].strip() if len(sys.argv) > 3 and sys.argv[3].strip() else ""
+job_id = sys.argv[4].strip() if len(sys.argv) > 4 and sys.argv[4].strip() else os.environ.get("JOB_ID", "").strip()
 env_label = os.environ.get("WORDLIST_LABEL", "").strip()
 wordlist_label = cli_label or env_label or os.path.basename(wordlist_path)
 start_time = time.time()
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-logs_dir = os.path.abspath(os.path.join(base_dir, "../logs"))
+root_logs_dir = os.path.abspath(os.path.join(base_dir, "../logs"))
+logs_dir = os.path.join(root_logs_dir, "jobs", job_id) if job_id else root_logs_dir
+
 status_json_path = os.path.join(logs_dir, "job_status.json")
 cancel_flag_path = os.path.join(logs_dir, "cancel.flag")
 hash_file_path = os.path.join(logs_dir, "office_target.hash")
 potfile_path = os.path.join(logs_dir, "hashcat.pot")
-decrypted_out_path = os.path.abspath(os.path.join(base_dir, "../decrypted_output.docx"))
+decrypted_out_path = os.path.join(logs_dir, "decrypted_output.docx")
 
 os.makedirs(logs_dir, exist_ok=True)
 
@@ -41,6 +44,7 @@ def update_status(state: str, progress: int, output_text: str):
     data = {
         "status": state,
         "progress": progress,
+        "job_id": job_id,
         "output": output_text
     }
     try:
@@ -262,8 +266,13 @@ try:
             )
             fb_env = os.environ.copy()
             fb_env["WORDLIST_LABEL"] = wordlist_label
+            if job_id:
+                fb_env["JOB_ID"] = job_id
+            fb_args = [sys.executable, phase1_script, file_path, wordlist_path, wordlist_label]
+            if job_id:
+                fb_args.append(job_id)
             fb_res = subprocess.run(
-                [sys.executable, phase1_script, file_path, wordlist_path, wordlist_label],
+                fb_args,
                 capture_output=True,
                 text=True,
                 env=fb_env

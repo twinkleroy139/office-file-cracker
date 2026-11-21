@@ -1,5 +1,6 @@
 let activePollInterval = null;
 let activeTimerInterval = null;
+let currentJobId = null;
 
 function stopAllIntervals() {
     if (activePollInterval) {
@@ -16,6 +17,14 @@ function showDashboardView() {
     stopAllIntervals();
     document.getElementById('progress-view').style.display = 'none';
     document.getElementById('dashboard-view').style.display = 'block';
+}
+
+function sendStopRequest(jobId) {
+    return fetch('backend/stop.php', {
+        method: 'POST',
+        headers: jobId ? { 'Content-Type': 'application/json' } : {},
+        body: jobId ? JSON.stringify({ job_id: jobId }) : null
+    });
 }
 
 document.getElementById('back-dashboard-btn').addEventListener('click', function() {
@@ -38,7 +47,7 @@ document.getElementById('stop-process-btn').addEventListener('click', function()
     stopBtn.disabled = true;
     stopBtn.innerText = 'STOPPING BACKEND...';
 
-    fetch('backend/stop.php', { method: 'POST' })
+    sendStopRequest(currentJobId)
         .then(res => res.json())
         .then(data => {
             lblStatus.innerText = 'PROCESS STOPPED BY USER';
@@ -64,7 +73,7 @@ document.getElementById('cancel-btn').addEventListener('click', function(e) {
         return;
     }
     stopAllIntervals();
-    fetch('backend/stop.php', { method: 'POST' })
+    sendStopRequest(currentJobId)
         .finally(() => {
             window.location.href = 'index.php';
         });
@@ -73,6 +82,7 @@ document.getElementById('cancel-btn').addEventListener('click', function(e) {
 document.getElementById('recovery-form').addEventListener('submit', function(e) {
     e.preventDefault();
     stopAllIntervals();
+    currentJobId = null;
 
     let fileInput = document.getElementById('locked_file');
     let wordlistFileInput = document.getElementById('wordlist_file');
@@ -132,10 +142,14 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
     })
     .then(data => {
         if (data.status === 'started') {
+            currentJobId = data.job_id || null;
             lblStatus.innerText = 'EXECUTING BACKGROUND CRACKING PIPELINE...';
+            const statusUrl = currentJobId
+                ? `backend/status.php?job_id=${encodeURIComponent(currentJobId)}`
+                : 'backend/status.php';
 
             activePollInterval = setInterval(() => {
-                fetch('backend/status.php')
+                fetch(statusUrl)
                 .then(async res => {
                     const rawStatus = await res.text();
                     return JSON.parse(rawStatus);

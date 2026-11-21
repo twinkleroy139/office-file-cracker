@@ -14,17 +14,25 @@ if len(sys.argv) < 3:
 file_path = sys.argv[1]
 wordlist_path = sys.argv[2]
 cli_label = sys.argv[3].strip() if len(sys.argv) > 3 and sys.argv[3].strip() else ""
+job_id = sys.argv[4].strip() if len(sys.argv) > 4 and sys.argv[4].strip() else os.environ.get("JOB_ID", "").strip()
 env_label = os.environ.get("WORDLIST_LABEL", "").strip()
 wordlist_label = cli_label or env_label or os.path.basename(wordlist_path)
 start_time = time.time()
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-status_json_path = os.path.abspath(os.path.join(base_dir, "../logs/job_status.json"))
-cancel_flag_path = os.path.abspath(os.path.join(base_dir, "../logs/cancel.flag"))
-decrypted_out_path = os.path.abspath(os.path.join(base_dir, "../decrypted_output.docx"))
+root_logs_dir = os.path.abspath(os.path.join(base_dir, "../logs"))
+job_logs_dir = os.path.join(root_logs_dir, "jobs", job_id) if job_id else root_logs_dir
+
+status_json_path = os.path.join(job_logs_dir, "job_status.json")
+cancel_flag_path = os.path.join(job_logs_dir, "cancel.flag")
+decrypted_out_path = os.path.join(job_logs_dir, "decrypted_output.docx")
+
+os.makedirs(job_logs_dir, exist_ok=True)
+
 
 def is_cancelled():
     return os.path.exists(cancel_flag_path)
+
 
 def update_status(state, progress, output_text):
     if is_cancelled() and state == "running":
@@ -32,14 +40,15 @@ def update_status(state, progress, output_text):
     data = {
         "status": state,
         "progress": progress,
+        "job_id": job_id,
         "output": output_text
     }
     try:
-        os.makedirs(os.path.dirname(status_json_path), exist_ok=True)
         with open(status_json_path, "w", encoding="utf-8") as f:
             json.dump(data, f)
     except Exception:
         pass
+
 
 def password_generator(path):
     with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -48,6 +57,7 @@ def password_generator(path):
             if pwd:
                 yield pwd
 
+
 def format_timing(checked_count, elapsed_sec):
     if checked_count <= 0 or elapsed_sec <= 0:
         return 0.0, 0.0
@@ -55,12 +65,12 @@ def format_timing(checked_count, elapsed_sec):
     ms_per_key = round((elapsed_sec / checked_count) * 1000.0, 1)
     return rate_per_sec, ms_per_key
 
+
 if is_cancelled():
     sys.exit(0)
 
 update_status("running", 10, f"[INFO] Phase 1 initialized for [{wordlist_label}]. Parsing file metadata once...")
 
-# Phase 1: Read file once and parse/validate Office encryption metadata once before the loop
 try:
     with open(file_path, "rb") as f:
         file_bytes = f.read()
@@ -84,6 +94,7 @@ except Exception as e:
     )
     sys.exit(1)
 
+
 def test_password(pwd):
     if is_cancelled():
         return None
@@ -96,6 +107,7 @@ def test_password(pwd):
         return pwd
     except Exception:
         return None
+
 
 checked = 0
 found = False

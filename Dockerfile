@@ -1,9 +1,10 @@
 FROM php:8.2-cli
 
-# Install Python and pip
+# Install Python, pip, and hashcat
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    hashcat \
     && rm -rf /var/lib/apt/lists/*
 
 # Install required Python cracking libraries

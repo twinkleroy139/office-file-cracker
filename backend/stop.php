@@ -27,9 +27,9 @@ if (file_exists($pid_file)) {
 }
 
 if (!$is_windows) {
-    exec("pkill -f 'engine/(dictionary_filter|cracker|custom_cracker|wordlist_cracker)\\.py' >/dev/null 2>&1");
+    exec("pkill -f 'engine/(dictionary_filter|cracker|custom_cracker|wordlist_cracker|wordlist_cracker_phase1|hash_extractor|hashcat_cracker)\\.py' >/dev/null 2>&1; pkill -f 'hashcat' >/dev/null 2>&1");
 } else {
-    exec("wmic process where \"CommandLine like '%dictionary_filter.py%' or CommandLine like '%cracker.py%' or CommandLine like '%wordlist_cracker.py%' or CommandLine like '%custom_cracker.py%'\" call terminate >nul 2>&1");
+    exec("wmic process where \"CommandLine like '%dictionary_filter.py%' or CommandLine like '%cracker.py%' or CommandLine like '%wordlist_cracker.py%' or CommandLine like '%wordlist_cracker_phase1.py%' or CommandLine like '%hash_extractor.py%' or CommandLine like '%hashcat_cracker.py%' or CommandLine like '%hashcat.exe%'\" call terminate >nul 2>&1");
 }
 
 $stopped_status = json_encode([

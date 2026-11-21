@@ -1,6 +1,7 @@
 import sys
 import subprocess
 import os
+import shutil
 
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -32,13 +33,21 @@ try:
         if res.returncode == 0:
             sys.exit(0)
 
-    # Step 2: Run Phase 1 metadata-cached wordlist engine (fallback to wordlist_cracker.py if needed)
+    # Step 2: Run Phase 2 Hashcat wordlist engine (fallback to Phase 1 if hashcat binary is absent)
     if wordlist_path and os.path.exists(wordlist_path):
+        phase2_script = os.path.join(engine_dir, "hashcat_cracker.py")
         phase1_script = os.path.join(engine_dir, "wordlist_cracker_phase1.py")
         fallback_script = os.path.join(engine_dir, "wordlist_cracker.py")
-        sub_script = phase1_script if os.path.exists(phase1_script) else fallback_script
+
+        if shutil.which("hashcat") and os.path.exists(phase2_script):
+            sub_script = phase2_script
+        elif os.path.exists(phase1_script):
+            sub_script = phase1_script
+        else:
+            sub_script = fallback_script
+
         executed_module = os.path.basename(sub_script)
-        print(f"[MASTER] Initiating High-Speed Wordlist Cracker ({executed_module})...")
+        print(f"[MASTER] Initiating Wordlist Cracker ({executed_module})...")
         child_env = os.environ.copy()
         child_env["WORDLIST_LABEL"] = wordlist_label
         res = subprocess.run(

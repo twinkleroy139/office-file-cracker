@@ -111,6 +111,18 @@ def parse_hashcat_stdout(stdout_text: str, hash_line: str):
     return cracked_pwd, latest_checked, latest_rate
 
 
+def build_hashcat_detail(raw_output: str) -> str:
+    clean_lines = []
+    for ln in raw_output.splitlines():
+        s = ln.strip()
+        if not s or (s.startswith("{") and s.endswith("}")):
+            continue
+        clean_lines.append(s)
+    if not clean_lines:
+        return "No GPU/OpenCL compute device available in container"
+    return " | ".join(clean_lines[-2:])[:220]
+
+
 if is_cancelled():
     sys.exit(0)
 
@@ -268,15 +280,22 @@ try:
     if proc.returncode == 255 and checked_est == 0:
         phase1_script = os.path.join(base_dir, "wordlist_cracker_phase1.py")
         if os.path.exists(phase1_script):
+            hc_detail = build_hashcat_detail(full_out)
             fallback_tag = "PYTHON MULTI-CORE + msoffcrypto (Fallback)"
+            fallback_notice = (
+                f"[HASHCAT FALLBACK] Hashcat (-m {hc_mode}) exited with code 255 ({hc_detail}). "
+                f"Switched to Python Multi-Core + msoffcrypto."
+            )
             fallback_msg = (
                 f"[ENGINE] Active: {fallback_tag}\n"
-                f"[INFO] Hashcat exited with code 255 (no OpenCL/GPU compute device in container). Switching to Python Multi-Core + msoffcrypto for [{wordlist_label}]..."
+                f"{fallback_notice}\n"
+                f"[INFO] Starting fallback scan for [{wordlist_label}]..."
             )
             print(fallback_msg)
             update_status("running", 25, fallback_msg, fallback_tag)
             fb_env = os.environ.copy()
             fb_env["WORDLIST_LABEL"] = wordlist_label
+            fb_env["FALLBACK_NOTICE"] = fallback_notice
             if job_id:
                 fb_env["JOB_ID"] = job_id
             fb_args = [sys.executable, phase1_script, file_path, wordlist_path, wordlist_label]

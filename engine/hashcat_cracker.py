@@ -89,7 +89,6 @@ def parse_hashcat_stdout(stdout_text: str, hash_line: str):
                     latest_checked = int(prog[0])
                 speeds = st.get("speeds")
                 if isinstance(speeds, list) and len(speeds) > 0:
-                    # hashcat reports H/s per device
                     total_hs = sum(float(x) for x in speeds if isinstance(x, (int, float)))
                     if total_hs > 0:
                         latest_rate = round(total_hs, 2)
@@ -253,7 +252,28 @@ try:
         update_status("finished", 100, success_msg)
         sys.exit(0)
 
-    # Exit code 1 in hashcat typically means exhausted (no password found)
+    if proc.returncode == 255 and checked_est == 0:
+        phase1_script = os.path.join(base_dir, "wordlist_cracker_phase1.py")
+        if os.path.exists(phase1_script):
+            update_status(
+                "running",
+                25,
+                f"[INFO] Hashcat unavailable in container (code 255). Switching seamlessly to Phase 1 engine for [{wordlist_label}]..."
+            )
+            fb_env = os.environ.copy()
+            fb_env["WORDLIST_LABEL"] = wordlist_label
+            fb_res = subprocess.run(
+                [sys.executable, phase1_script, file_path, wordlist_path, wordlist_label],
+                capture_output=True,
+                text=True,
+                env=fb_env
+            )
+            if fb_res.stdout:
+                print(fb_res.stdout)
+            if fb_res.stderr:
+                print(fb_res.stderr, file=sys.stderr)
+            sys.exit(fb_res.returncode)
+
     if proc.returncode == 1:
         exhausted_msg = (
             f"[EXHAUSTED] full dic complete not matching with dic and exhausted\n"

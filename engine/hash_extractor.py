@@ -122,7 +122,6 @@ def extract_office_hash(file_path: str):
     with open(file_path, "rb") as f:
         raw = f.read()
 
-    # Quick check via msoffcrypto so non-encrypted files are reported clearly
     try:
         probe = msoffcrypto.OfficeFile(io.BytesIO(raw))
         if not probe.is_encrypted():
@@ -171,7 +170,6 @@ def extract_office_hash(file_path: str):
             xml_text = xml_text[:end_idx + 1]
         root = ET.fromstring(xml_text)
 
-        key_data_salt = ""
         pass_salt = ""
         spin_count = "100000"
         block_size = "16"
@@ -184,7 +182,6 @@ def extract_office_hash(file_path: str):
         for elem in root.iter():
             tag = _local_name(elem.tag).lower()
             if tag == "keydata":
-                key_data_salt = _attr_ci(elem.attrib, "saltValue", default=key_data_salt)
                 block_size = _attr_ci(elem.attrib, "blockSize", default=block_size)
             elif tag == "passwordkey":
                 pass_salt = _attr_ci(elem.attrib, "saltValue", default=pass_salt)
@@ -220,13 +217,12 @@ def extract_office_hash(file_path: str):
             ev_hex = binascii.hexlify(base64.b64decode(enc_verifier_b64)).decode()
             evh_hex = binascii.hexlify(base64.b64decode(enc_verifier_hash_b64)).decode()
             ek_hex = binascii.hexlify(base64.b64decode(enc_key_b64)).decode()
-            kd_salt_hex = binascii.hexlify(base64.b64decode(key_data_salt)).decode() if key_data_salt else salt_hex
 
             mode = 9600 if "SHA512" in hash_alg else 9500
             version_tag = "2013" if mode == 9600 else "2010"
             h_str = (
                 f"$office$*{version_tag}*{spin_count}*{key_bits}*{block_size}*"
-                f"{salt_hex}*{ev_hex}*{evh_hex}*{ek_hex}*{kd_salt_hex}"
+                f"{salt_hex}*{ev_hex}*{evh_hex}*{ek_hex}"
             )
             return mode, h_str
 

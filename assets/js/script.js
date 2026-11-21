@@ -17,6 +17,43 @@ function showDashboardView() {
     stopAllIntervals();
     document.getElementById('progress-view').style.display = 'none';
     document.getElementById('dashboard-view').style.display = 'block';
+
+
+    function loadJobHistory() {
+    const listEl = document.getElementById('job-history-list');
+    if (!listEl) return;
+
+    fetch('backend/history.php')
+        .then(res => res.json())
+        .then(data => {
+            const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+            if (jobs.length === 0) {
+                listEl.innerHTML = `<div style="color: #00b347;">No persistent jobs recorded yet (check Firebase DB rules / env config if locked).</div>`;
+                return;
+            }
+            listEl.innerHTML = jobs.map(j => {
+                const id = j.job_id || 'unknown';
+                const file = j.file_name || 'Unknown file';
+                const wl = j.wordlist_name || 'None';
+                const st = (j.status || 'unknown').toUpperCase();
+                const lineIdx = Number(j.last_line_index || 0).toLocaleString();
+                return `<div style="border-top: 1px solid #00ff6622; padding: 8px 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <div>
+                        <div><strong style="color: #00ff66;">${file}</strong> <span style="font-size: 11px; color: #00b347;">(${wl})</span></div>
+                        <div style="font-size: 11px; color: #00b347;">ID: ${id} | Status: <strong>${st}</strong> | Line: #${lineIdx}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        })
+        .catch(() => {
+            listEl.innerHTML = `<div style="color: #ffaa33;">Unable to load Firebase job history right now.</div>`;
+        });
+}
+
+document.getElementById('refresh-history-btn')?.addEventListener('click', loadJobHistory);
+loadJobHistory();
+
+
 }
 
 function sendStopRequest(jobId) {

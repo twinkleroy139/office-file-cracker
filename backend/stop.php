@@ -79,6 +79,17 @@ $stopped_status = json_encode([
 ]);
 file_put_contents($status_file, $stopped_status);
 
+
+require_once 'firebase_history.php';
+firebase_upsert_job($safe_job_id, [
+    'status' => 'stopped',
+    'progress' => 100,
+    'resumable' => $resumable,
+    'last_line_index' => $resume_line
+]);
+
+
+
 echo json_encode([
     'status' => 'stopped',
     'job_id' => $safe_job_id,

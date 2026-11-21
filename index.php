@@ -96,6 +96,16 @@
 
             <button type="submit" id="start-btn">START RECOVERY PROCESS</button>
         </form>
+
+        <div id="job-history-panel" style="margin-top: 18px; border: 1px solid #00ff6644; padding: 12px; border-radius: 4px; background: #030a03;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <strong style="font-size: 13px; color: #00ff66;">[🕒] Recent Job History (Firebase)</strong>
+        <button type="button" id="refresh-history-btn" style="background: #041809; color: #00ff66; border: 1px solid #00ff6666; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: monospace;">Refresh</button>
+    </div>
+    <div id="job-history-list" style="font-size: 12px; color: #00b347;">Loading job history...</div>
+</div>
+
+
     </div>
 
     <!-- Live Progress View -->
@@ -139,7 +149,7 @@
 
         <button type="button" id="resume-process-btn" style="display:none; flex: 1; min-width: 160px; background: #002b36; color: #2dd4bf; border: 1px solid #2dd4bf; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: monospace;">[▶] Resume From Checkpoint</button>
 
-        
+
         <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
             <button type="button" id="export-hash-btn" style="display: none; width: 100%; background: #041b2b; color: #38bdf8; border: 1px solid #38bdf8; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: monospace;">[⬇] Export Hash for Local GPU Cracking (.hash)</button>
         </div>

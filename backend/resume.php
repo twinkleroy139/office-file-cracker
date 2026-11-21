@@ -96,6 +96,17 @@ file_put_contents($status_file, json_encode([
     'output' => "[RESUME] Resuming job [{$safe_job_id}] from wordlist line #" . number_format($last_line) . "..."
 ]));
 
+
+require_once 'firebase_history.php';
+firebase_upsert_job($safe_job_id, [
+    'status' => 'running',
+    'progress' => 15,
+    'resumable' => false,
+    'last_line_index' => $last_line
+]);
+
+
+
 $is_windows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
 $python_exe = $is_windows ? "python" : "python3";
 

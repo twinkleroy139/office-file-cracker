@@ -88,6 +88,20 @@ $initial_status = json_encode([
 ]);
 file_put_contents($status_file, $initial_status);
 
+
+require_once 'firebase_history.php';
+firebase_upsert_job($job_id, [
+    'file_name' => $locked_file_name,
+    'wordlist_name' => $wordlist_name,
+    'status' => 'running',
+    'progress' => 5,
+    'resumable' => false,
+    'last_line_index' => 0,
+    'created_at' => time()
+]);
+
+
+
 $is_windows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
 $python_exe = $is_windows ? "python" : "python3";
 

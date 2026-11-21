@@ -136,6 +136,10 @@
             <button type="button" id="back-dashboard-btn" style="display:none; flex: 1; min-width: 160px; background: #003311; color: #00ff66; border: 1px solid #00ff66; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: monospace;">[&lt;&lt;] Return to Dashboard</button>
         </div>
 
+
+        <button type="button" id="resume-process-btn" style="display:none; flex: 1; min-width: 160px; background: #002b36; color: #2dd4bf; border: 1px solid #2dd4bf; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: monospace;">[▶] Resume From Checkpoint</button>
+
+        
         <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
             <button type="button" id="export-hash-btn" style="display: none; width: 100%; background: #041b2b; color: #38bdf8; border: 1px solid #38bdf8; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-family: monospace;">[⬇] Export Hash for Local GPU Cracking (.hash)</button>
         </div>

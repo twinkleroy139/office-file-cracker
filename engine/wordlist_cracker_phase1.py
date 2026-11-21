@@ -15,6 +15,12 @@ file_path = sys.argv[1]
 wordlist_path = sys.argv[2]
 cli_label = sys.argv[3].strip() if len(sys.argv) > 3 and sys.argv[3].strip() else ""
 job_id = sys.argv[4].strip() if len(sys.argv) > 4 and sys.argv[4].strip() else os.environ.get("JOB_ID", "").strip()
+cli_resume = sys.argv[5].strip() if len(sys.argv) > 5 and sys.argv[5].strip() else os.environ.get("RESUME_FROM_LINE", "0").strip()
+try:
+    resume_from_line = max(0, int(cli_resume))
+except ValueError:
+    resume_from_line = 0
+
 env_label = os.environ.get("WORDLIST_LABEL", "").strip()
 wordlist_label = cli_label or env_label or os.path.basename(wordlist_path)
 fallback_notice = os.environ.get("FALLBACK_NOTICE", "").strip()
@@ -26,6 +32,7 @@ job_logs_dir = os.path.join(root_logs_dir, "jobs", job_id) if job_id else root_l
 
 status_json_path = os.path.join(job_logs_dir, "job_status.json")
 cancel_flag_path = os.path.join(job_logs_dir, "cancel.flag")
+checkpoint_path = os.path.join(job_logs_dir, "checkpoint.json")
 decrypted_out_path = os.path.join(job_logs_dir, "decrypted_output.docx")
 
 ENGINE_TAG = "PYTHON MULTI-CORE + msoffcrypto (4 Threads)"
@@ -44,7 +51,23 @@ def is_cancelled():
     return os.path.exists(cancel_flag_path)
 
 
-def update_status(state, progress, body_text):
+def save_checkpoint(line_idx: int, checked_total: int):
+    payload = {
+        "job_id": job_id,
+        "wordlist_label": wordlist_label,
+        "file_path": file_path,
+        "last_line_index": int(line_idx),
+        "checked_count": int(checked_total),
+        "updated_at": int(time.time())
+    }
+    try:
+        with open(checkpoint_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+    except Exception:
+        pass
+
+
+def update_status(state, progress, body_text, resumable=False):
     if is_cancelled() and state == "running":
         return
     data = {
@@ -52,6 +75,7 @@ def update_status(state, progress, body_text):
         "progress": progress,
         "job_id": job_id,
         "engine": ENGINE_TAG,
+        "resumable": resumable,
         "output": format_terminal_block(body_text)
     }
     try:
@@ -61,11 +85,15 @@ def update_status(state, progress, body_text):
         pass
 
 
-def password_generator(path):
+def password_generator(path, skip_lines=0):
+    skipped = 0
     with open(path, "r", encoding="utf-8", errors="ignore") as f:
         for line in f:
             pwd = line.strip()
             if pwd:
+                if skipped < skip_lines:
+                    skipped += 1
+                    continue
                 yield pwd
 
 
@@ -78,6 +106,7 @@ def format_timing(checked_count, elapsed_sec):
 
 
 if is_cancelled():
+    save_checkpoint(resume_from_line, 0)
     sys.exit(0)
 
 print(format_terminal_block("[INFO] Phase 1 initialized. Parsing file metadata once..."))
@@ -122,19 +151,22 @@ def test_password(pwd):
 
 
 checked = 0
+current_line_pos = resume_from_line
 found = False
 reached_eof = False
 
 try:
     batch_size = 100
-    update_status("running", 15, f"[INFO] Metadata cached for [{wordlist_label}]. Streaming keys...")
+    resume_note = f" (resuming from line #{resume_from_line:,})" if resume_from_line > 0 else ""
+    update_status("running", 15, f"[INFO] Metadata cached for [{wordlist_label}]{resume_note}. Streaming keys...")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         batch = []
-        stream_iter = password_generator(wordlist_path)
+        stream_iter = password_generator(wordlist_path, skip_lines=resume_from_line)
 
         while True:
             if is_cancelled():
+                save_checkpoint(current_line_pos, checked)
                 break
 
             batch.clear()
@@ -151,8 +183,14 @@ try:
                     if is_cancelled():
                         break
                     checked += 1
+                    current_line_pos += 1
                     res = future.result()
                     if res:
+                        if os.path.exists(checkpoint_path):
+                            try:
+                                os.remove(checkpoint_path)
+                            except Exception:
+                                pass
                         elapsed = round(time.time() - start_time, 2)
                         rate, ms_per_key = format_timing(checked, elapsed)
                         success_msg = (
@@ -160,54 +198,64 @@ try:
                             f"[DICTIONARY] {wordlist_label}\n"
                             f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
                         )
-                        update_status("finished", 100, success_msg)
+                        update_status("finished", 100, success_msg, resumable=False)
                         found = True
                         break
+
+                save_checkpoint(current_line_pos, checked)
 
                 if found or is_cancelled():
                     break
 
                 elapsed_now = max(0.1, round(time.time() - start_time, 1))
                 rate_now, ms_now = format_timing(checked, elapsed_now)
-                pct = min(95, 15 + (checked // 250))
+                pct = min(95, 15 + (current_line_pos // 250))
                 update_status(
                     "running",
                     pct,
-                    f"[STATUS] Scanning [{wordlist_label}]... Checked {checked:,} keys ({rate_now} keys/s | {ms_now} ms/key | Elapsed: {elapsed_now}s)..."
+                    f"[STATUS] Scanning [{wordlist_label}] (Line #{current_line_pos:,})... Checked {checked:,} keys ({rate_now} keys/s | {ms_now} ms/key | Elapsed: {elapsed_now}s)..."
                 )
 
             if reached_eof:
                 break
 
     if is_cancelled():
+        save_checkpoint(current_line_pos, checked)
         sys.exit(0)
 
     if not found:
         elapsed = round(time.time() - start_time, 2)
         rate, ms_per_key = format_timing(checked, elapsed)
         if reached_eof:
+            if os.path.exists(checkpoint_path):
+                try:
+                    os.remove(checkpoint_path)
+                except Exception:
+                    pass
             exhausted_msg = (
                 f"[EXHAUSTED] full dic complete not matching with dic and exhausted\n"
                 f"[DICTIONARY] {wordlist_label}\n"
                 f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
             )
-            update_status("finished", 100, exhausted_msg)
+            update_status("finished", 100, exhausted_msg, resumable=False)
         else:
+            save_checkpoint(current_line_pos, checked)
             incomplete_msg = (
-                f"[INCOMPLETE] not fully complete dic pass and try again\n"
+                f"[INCOMPLETE] Interrupted at line #{current_line_pos:,} — ready to resume\n"
                 f"[DICTIONARY] {wordlist_label}\n"
                 f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
             )
-            update_status("error", 100, incomplete_msg)
+            update_status("error", 100, incomplete_msg, resumable=True)
 
 except Exception as e:
+    save_checkpoint(current_line_pos, checked)
     if is_cancelled():
         sys.exit(0)
     elapsed = round(time.time() - start_time, 2)
     rate, ms_per_key = format_timing(checked, elapsed)
     err_msg = (
-        f"[INCOMPLETE] not fully complete dic pass and try again\n"
+        f"[INCOMPLETE] Interrupted at line #{current_line_pos:,} — ready to resume\n"
         f"[DICTIONARY] {wordlist_label}\n"
         f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s | Error: {e}"
     )
-    update_status("error", 100, err_msg)
+    update_status("error", 100, err_msg, resumable=True)

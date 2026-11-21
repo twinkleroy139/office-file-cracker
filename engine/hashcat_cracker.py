@@ -38,13 +38,14 @@ def is_cancelled() -> bool:
     return os.path.exists(cancel_flag_path)
 
 
-def update_status(state: str, progress: int, output_text: str):
+def update_status(state: str, progress: int, output_text: str, engine_label: str = "HASHCAT"):
     if is_cancelled() and state == "running":
         return
     data = {
         "status": state,
         "progress": progress,
         "job_id": job_id,
+        "engine": engine_label,
         "output": output_text
     }
     try:
@@ -119,7 +120,8 @@ if not hashcat_bin:
     update_status(
         "error",
         100,
-        f"[-] Header inspection error\n[DICT] {wordlist_label} | [REASON] hashcat binary not found in PATH | [TIME] {elapsed}s"
+        f"[ENGINE] Active: HASHCAT (Not Found in PATH)\n[-] Header inspection error\n[DICT] {wordlist_label} | [REASON] hashcat binary not found in PATH | [TIME] {elapsed}s",
+        "HASHCAT (UNAVAILABLE)"
     )
     sys.exit(1)
 
@@ -128,11 +130,13 @@ if not os.path.exists(wordlist_path) or os.path.getsize(wordlist_path) == 0:
     update_status(
         "error",
         100,
-        f"[-] Header inspection error\n[DICT] {wordlist_label} | [REASON] Filtered wordlist empty or missing | [TIME] {elapsed}s"
+        f"[ENGINE] Active: HASHCAT\n[-] Header inspection error\n[DICT] {wordlist_label} | [REASON] Filtered wordlist empty or missing | [TIME] {elapsed}s",
+        "HASHCAT"
     )
     sys.exit(1)
 
-update_status("running", 10, f"[INFO] Phase 2 Hashcat initialized for [{wordlist_label}]. Extracting Office hash...")
+hc_engine_tag = "HASHCAT"
+update_status("running", 10, f"[ENGINE] Active: {hc_engine_tag}\n[INFO] Phase 2 Hashcat initialized for [{wordlist_label}]. Extracting Office hash...", hc_engine_tag)
 
 try:
     hc_mode, hash_str = extract_office_hash(file_path)
@@ -144,14 +148,16 @@ except Exception as e:
     update_status(
         "error",
         100,
-        f"[-] FILE HEADER / ENCRYPTION ERROR\n[FILE] {os.path.basename(file_path)}\n{err_formatted}\n[TIME] {elapsed}s"
+        f"[ENGINE] Active: {hc_engine_tag}\n[-] FILE HEADER / ENCRYPTION ERROR\n[FILE] {os.path.basename(file_path)}\n{err_formatted}\n[TIME] {elapsed}s",
+        hc_engine_tag
     )
     sys.exit(1)
 
 if is_cancelled():
     sys.exit(0)
 
-update_status("running", 20, f"[INFO] Extracted hash (mode {hc_mode}) for [{wordlist_label}]. Launching hashcat engine...")
+hc_engine_tag = f"HASHCAT (-m {hc_mode})"
+update_status("running", 20, f"[ENGINE] Active: {hc_engine_tag}\n[INFO] Extracted hash for [{wordlist_label}]. Launching hashcat engine...", hc_engine_tag)
 
 cmd = [
     hashcat_bin,
@@ -216,7 +222,8 @@ try:
                     update_status(
                         "running",
                         pct,
-                        f"[STATUS] Hashcat (m{hc_mode}) scanning [{wordlist_label}]... Checked {checked_est:,} keys ({rate_now} keys/s | {ms_now} ms/key | Elapsed: {elapsed_now}s)..."
+                        f"[ENGINE] Active: {hc_engine_tag}\n[STATUS] Hashcat scanning [{wordlist_label}]... Checked {checked_est:,} keys ({rate_now} keys/s | {ms_now} ms/key | Elapsed: {elapsed_now}s)...",
+                        hc_engine_tag
                     )
                 except Exception:
                     pass
@@ -250,21 +257,24 @@ try:
     if cracked_pwd is not None:
         decrypt_and_save(cracked_pwd)
         success_msg = (
+            f"[ENGINE] Active: {hc_engine_tag}\n"
             f"[SUCCESS] Password Recovered: [{cracked_pwd}]\n"
             f"[DICTIONARY] {wordlist_label} (Hashcat -m {hc_mode})\n"
             f"[METRICS] Checked: {checked_est:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
         )
-        update_status("finished", 100, success_msg)
+        update_status("finished", 100, success_msg, hc_engine_tag)
         sys.exit(0)
 
     if proc.returncode == 255 and checked_est == 0:
         phase1_script = os.path.join(base_dir, "wordlist_cracker_phase1.py")
         if os.path.exists(phase1_script):
-            update_status(
-                "running",
-                25,
-                f"[INFO] Hashcat unavailable in container (code 255). Switching seamlessly to Phase 1 engine for [{wordlist_label}]..."
+            fallback_tag = "PYTHON MULTI-CORE + msoffcrypto (Fallback)"
+            fallback_msg = (
+                f"[ENGINE] Active: {fallback_tag}\n"
+                f"[INFO] Hashcat exited with code 255 (no OpenCL/GPU compute device in container). Switching to Python Multi-Core + msoffcrypto for [{wordlist_label}]..."
             )
+            print(fallback_msg)
+            update_status("running", 25, fallback_msg, fallback_tag)
             fb_env = os.environ.copy()
             fb_env["WORDLIST_LABEL"] = wordlist_label
             if job_id:
@@ -286,19 +296,21 @@ try:
 
     if proc.returncode == 1:
         exhausted_msg = (
+            f"[ENGINE] Active: {hc_engine_tag}\n"
             f"[EXHAUSTED] full dic complete not matching with dic and exhausted\n"
             f"[DICTIONARY] {wordlist_label} (Hashcat -m {hc_mode})\n"
             f"[METRICS] Checked: {checked_est:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
         )
-        update_status("finished", 100, exhausted_msg)
+        update_status("finished", 100, exhausted_msg, hc_engine_tag)
         sys.exit(1)
 
     incomplete_msg = (
+        f"[ENGINE] Active: {hc_engine_tag}\n"
         f"[INCOMPLETE] not fully complete dic pass and try again\n"
         f"[DICTIONARY] {wordlist_label} (Hashcat -m {hc_mode}) | [CODE] {proc.returncode}\n"
         f"[METRICS] Checked: {checked_est:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
     )
-    update_status("error", 100, incomplete_msg)
+    update_status("error", 100, incomplete_msg, hc_engine_tag)
     sys.exit(1)
 
 except Exception as e:
@@ -309,6 +321,7 @@ except Exception as e:
     update_status(
         "error",
         100,
-        f"[-] FILE ERROR\n[FILE] {os.path.basename(file_path)}\n{err_formatted}\n[TIME] {elapsed}s"
+        f"[ENGINE] Active: {hc_engine_tag}\n[-] FILE ERROR\n[FILE] {os.path.basename(file_path)}\n{err_formatted}\n[TIME] {elapsed}s",
+        hc_engine_tag
     )
     sys.exit(1)

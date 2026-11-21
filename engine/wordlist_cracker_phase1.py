@@ -27,6 +27,8 @@ status_json_path = os.path.join(job_logs_dir, "job_status.json")
 cancel_flag_path = os.path.join(job_logs_dir, "cancel.flag")
 decrypted_out_path = os.path.join(job_logs_dir, "decrypted_output.docx")
 
+ENGINE_TAG = "PYTHON MULTI-CORE + msoffcrypto (4 Threads)"
+
 os.makedirs(job_logs_dir, exist_ok=True)
 
 
@@ -41,6 +43,7 @@ def update_status(state, progress, output_text):
         "status": state,
         "progress": progress,
         "job_id": job_id,
+        "engine": ENGINE_TAG,
         "output": output_text
     }
     try:
@@ -69,7 +72,8 @@ def format_timing(checked_count, elapsed_sec):
 if is_cancelled():
     sys.exit(0)
 
-update_status("running", 10, f"[INFO] Phase 1 initialized for [{wordlist_label}]. Parsing file metadata once...")
+print(f"[ENGINE] Active: {ENGINE_TAG}")
+update_status("running", 10, f"[ENGINE] Active: {ENGINE_TAG}\n[INFO] Phase 1 initialized for [{wordlist_label}]. Parsing file metadata once...")
 
 try:
     with open(file_path, "rb") as f:
@@ -82,7 +86,7 @@ try:
         update_status(
             "error",
             100,
-            f"[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] Document is not encrypted | [TIME] {elapsed}s"
+            f"[ENGINE] Active: {ENGINE_TAG}\n[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] Document is not encrypted | [TIME] {elapsed}s"
         )
         sys.exit(1)
 except Exception as e:
@@ -90,7 +94,7 @@ except Exception as e:
     update_status(
         "error",
         100,
-        f"[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] Metadata parse error: {e} | [TIME] {elapsed}s"
+        f"[ENGINE] Active: {ENGINE_TAG}\n[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] Metadata parse error: {e} | [TIME] {elapsed}s"
     )
     sys.exit(1)
 
@@ -115,7 +119,7 @@ reached_eof = False
 
 try:
     batch_size = 100
-    update_status("running", 15, f"[INFO] Metadata cached for [{wordlist_label}]. Streaming keys...")
+    update_status("running", 15, f"[ENGINE] Active: {ENGINE_TAG}\n[INFO] Metadata cached for [{wordlist_label}]. Streaming keys...")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         batch = []
@@ -144,6 +148,7 @@ try:
                         elapsed = round(time.time() - start_time, 2)
                         rate, ms_per_key = format_timing(checked, elapsed)
                         success_msg = (
+                            f"[ENGINE] Active: {ENGINE_TAG}\n"
                             f"[SUCCESS] Password Recovered: [{res}]\n"
                             f"[DICTIONARY] {wordlist_label}\n"
                             f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
@@ -161,7 +166,7 @@ try:
                 update_status(
                     "running",
                     pct,
-                    f"[STATUS] Scanning [{wordlist_label}]... Checked {checked:,} keys ({rate_now} keys/s | {ms_now} ms/key | Elapsed: {elapsed_now}s)..."
+                    f"[ENGINE] Active: {ENGINE_TAG}\n[STATUS] Scanning [{wordlist_label}]... Checked {checked:,} keys ({rate_now} keys/s | {ms_now} ms/key | Elapsed: {elapsed_now}s)..."
                 )
 
             if reached_eof:
@@ -175,6 +180,7 @@ try:
         rate, ms_per_key = format_timing(checked, elapsed)
         if reached_eof:
             exhausted_msg = (
+                f"[ENGINE] Active: {ENGINE_TAG}\n"
                 f"[EXHAUSTED] full dic complete not matching with dic and exhausted\n"
                 f"[DICTIONARY] {wordlist_label}\n"
                 f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
@@ -182,6 +188,7 @@ try:
             update_status("finished", 100, exhausted_msg)
         else:
             incomplete_msg = (
+                f"[ENGINE] Active: {ENGINE_TAG}\n"
                 f"[INCOMPLETE] not fully complete dic pass and try again\n"
                 f"[DICTIONARY] {wordlist_label}\n"
                 f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
@@ -194,6 +201,7 @@ except Exception as e:
     elapsed = round(time.time() - start_time, 2)
     rate, ms_per_key = format_timing(checked, elapsed)
     err_msg = (
+        f"[ENGINE] Active: {ENGINE_TAG}\n"
         f"[INCOMPLETE] not fully complete dic pass and try again\n"
         f"[DICTIONARY] {wordlist_label}\n"
         f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s | Error: {e}"

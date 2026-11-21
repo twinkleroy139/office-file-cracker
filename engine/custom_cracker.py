@@ -1,6 +1,8 @@
 import sys
+import os
 import time
 import io
+import json
 import concurrent.futures
 import msoffcrypto
 
@@ -9,7 +11,42 @@ if len(sys.argv) < 3:
 
 file_path = sys.argv[1]
 raw_clues_arg = sys.argv[2]
+job_id = sys.argv[3].strip() if len(sys.argv) > 3 and sys.argv[3].strip() else os.environ.get("JOB_ID", "").strip()
 start_time = time.time()
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
+root_logs_dir = os.path.abspath(os.path.join(base_dir, "../logs"))
+logs_dir = os.path.join(root_logs_dir, "jobs", job_id) if job_id else root_logs_dir
+status_json_path = os.path.join(logs_dir, "job_status.json")
+cancel_flag_path = os.path.join(logs_dir, "cancel.flag")
+decrypted_out_path = os.path.join(logs_dir, "decrypted_output.docx") if job_id else os.path.abspath(os.path.join(base_dir, "../decrypted_output.docx"))
+
+ENGINE_TAG = "PYTHON MULTI-CORE + msoffcrypto (8 Threads)"
+
+
+def is_cancelled():
+    return os.path.exists(cancel_flag_path)
+
+
+def update_status(state, progress, output_text):
+    if not job_id:
+        return
+    if is_cancelled() and state == "running":
+        return
+    os.makedirs(logs_dir, exist_ok=True)
+    data = {
+        "status": state,
+        "progress": progress,
+        "job_id": job_id,
+        "engine": ENGINE_TAG,
+        "output": output_text
+    }
+    try:
+        with open(status_json_path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+
 
 # Parse custom clues separated by commas
 base_clues = [c.strip() for c in raw_clues_arg.split(",") if c.strip()]
@@ -17,8 +54,10 @@ if not base_clues:
     print("[-] No custom clues provided.")
     sys.exit(1)
 
+print(f"[ENGINE] Active: {ENGINE_TAG}")
 print(f"[INFO] Base custom clues received: {base_clues}")
 print("[INFO] Generating Smart Rule-Based Mangling permutations...")
+update_status("running", 12, f"[ENGINE] Active: {ENGINE_TAG}\n[INFO] Generating clue permutations...")
 
 # Smart Rule-Based Mangling Engine
 mangled_passwords = set()
@@ -30,8 +69,8 @@ for word in base_clues:
     mangled_passwords.add(word.lower())
     mangled_passwords.add(word.upper())
     mangled_passwords.add(word.capitalize())
-    mangled_passwords.add(word[::-1]) # Reversed
-    
+    mangled_passwords.add(word[::-1])  # Reversed
+
     # 2. Append years and symbols
     for y in years:
         mangled_passwords.add(word + y)
@@ -57,29 +96,41 @@ except Exception as e:
     print(f"[-] Error reading locked file: {e}")
     sys.exit(1)
 
+
 def test_password(pwd):
     try:
         f_stream = io.BytesIO(file_bytes)
         enc_file = msoffcrypto.OfficeFile(f_stream)
         enc_file.load_key(password=pwd)
-        with open("decrypted_output.docx", "wb") as out:
+        os.makedirs(os.path.dirname(decrypted_out_path), exist_ok=True)
+        with open(decrypted_out_path, "wb") as out:
             enc_file.decrypt(out)
         return pwd
     except Exception:
         return None
 
+
 checked_count = 0
 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
     futures = {executor.submit(test_password, pwd): pwd for pwd in passwords_list}
-    
+
     for future in concurrent.futures.as_completed(futures):
         checked_count += 1
         res = future.result()
         if res:
             elapsed = round(time.time() - start_time, 2)
-            print(f"\n[SUCCESS] Smart Match Found: [{res}]")
-            print(f"[METRICS] Checked: {checked_count:,} permutations | Time: {elapsed}s")
+            rate = round(checked_count / elapsed, 2) if elapsed > 0 else checked_count
+            ms_per_key = round((elapsed / checked_count) * 1000.0, 1) if checked_count > 0 else 0.0
+            print(f"\n[ENGINE] Active: {ENGINE_TAG}")
+            print(f"[SUCCESS] Smart Match Found: [{res}]")
+            print(f"[METRICS] Checked: {checked_count:,} permutations ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s")
+            update_status(
+                "finished",
+                100,
+                f"[ENGINE] Active: {ENGINE_TAG}\n[SUCCESS] Smart Match Found: [{res}]\n[METRICS] Checked: {checked_count:,} permutations ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
+            )
             sys.exit(0)
 
+print(f"[ENGINE] Active: {ENGINE_TAG}")
 print("[-] Custom clues mangling exhausted. No match found.")
 sys.exit(1)

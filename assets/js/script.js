@@ -170,9 +170,18 @@ document.getElementById('recovery-form').addEventListener('submit', function(e) 
                         }
                     }
 
+                    const engineMatch = outText.match(/\[ENGINE\]\s*Active:\s*([^\n]+)/);
+                    const activeEngine = statusData.engine || (engineMatch && engineMatch[1] ? engineMatch[1].trim() : '');
                     const rateMatch = outText.match(/\(([\d.]+\s*keys\/s\s*\|\s*[\d.]+\s*ms\/key)\)/);
-                    if (speedIndicatorEl && rateMatch && rateMatch[1]) {
-                        speedIndicatorEl.innerText = rateMatch[1];
+
+                    if (speedIndicatorEl) {
+                        if (activeEngine && rateMatch && rateMatch[1]) {
+                            speedIndicatorEl.innerText = `${activeEngine} | ${rateMatch[1]}`;
+                        } else if (activeEngine) {
+                            speedIndicatorEl.innerText = activeEngine;
+                        } else if (rateMatch && rateMatch[1]) {
+                            speedIndicatorEl.innerText = rateMatch[1];
+                        }
                     }
 
                     if (statusData.status === 'finished' || statusData.status === 'error') {

@@ -27,10 +27,11 @@ if job_id:
     child_env["JOB_ID"] = job_id
 
 try:
-    # Step 1: Run custom clues engine
+    # Step 1: Run custom clues engine (Python Multi-Core + msoffcrypto)
     if custom_clues and custom_clues.strip():
         executed_module = "custom_cracker.py"
         sub_script = os.path.join(engine_dir, "custom_cracker.py")
+        print("[ENGINE] Selected: PYTHON MULTI-CORE + msoffcrypto (Custom Clues & Mangling)")
         print("[MASTER] Initiating Custom Clues & Smart Mangling Engine...")
         args = [py_cmd, sub_script, locked_file, custom_clues]
         if job_id:
@@ -42,18 +43,22 @@ try:
         if res.returncode == 0:
             sys.exit(0)
 
-    # Step 2: Run Phase 2 Hashcat wordlist engine (fallback to Phase 1 if hashcat binary is absent)
+    # Step 2: Run Phase 2 Hashcat wordlist engine (fallback to Phase 1 Python Multi-Core + msoffcrypto)
     if wordlist_path and os.path.exists(wordlist_path):
         phase2_script = os.path.join(engine_dir, "hashcat_cracker.py")
         phase1_script = os.path.join(engine_dir, "wordlist_cracker_phase1.py")
         fallback_script = os.path.join(engine_dir, "wordlist_cracker.py")
 
-        if shutil.which("hashcat") and os.path.exists(phase2_script):
+        hashcat_found = shutil.which("hashcat") is not None
+        if hashcat_found and os.path.exists(phase2_script):
             sub_script = phase2_script
+            print("[ENGINE] Selected: HASHCAT (Primary Wordlist Engine)")
         elif os.path.exists(phase1_script):
             sub_script = phase1_script
+            print("[ENGINE] Selected: PYTHON MULTI-CORE + msoffcrypto (Hashcat binary not found)")
         else:
             sub_script = fallback_script
+            print("[ENGINE] Selected: PYTHON MULTI-CORE + msoffcrypto (Legacy Fallback)")
 
         executed_module = os.path.basename(sub_script)
         print(f"[MASTER] Initiating Wordlist Cracker ({executed_module})...")

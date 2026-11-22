@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Document Password Recovery Suite</title>
     <link rel="stylesheet" href="assets/css/styles.css">
+    <link rel="stylesheet" href="assets/css/frozen_cyber_aura.css">
 </head>
 <body>
 <div class="container">
@@ -158,5 +159,6 @@
 </div>
 
 <script src="assets/js/script.js"></script>
+<script src="assets/js/frozen_mode_header.js"></script>
 </body>
 </html>

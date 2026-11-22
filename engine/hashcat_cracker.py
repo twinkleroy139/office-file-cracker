@@ -8,6 +8,12 @@ import subprocess
 import msoffcrypto
 from hash_extractor import extract_office_hash
 
+try:
+    from firebase_sync import sync_job_result
+except Exception:
+    def sync_job_result(*args, **kwargs):
+        return False
+
 sys.stdout.reconfigure(line_buffering=True)
 
 if len(sys.argv) < 3:
@@ -275,6 +281,15 @@ try:
             f"[METRICS] Checked: {checked_est:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
         )
         update_status("finished", 100, success_msg, hc_engine_tag)
+        sync_job_result(
+            job_id=job_id,
+            status="cracked",
+            progress=100,
+            cracked_password=cracked_pwd,
+            outcome="Password Recovered",
+            engine=hc_engine_tag,
+            resumable=False,
+        )
         sys.exit(0)
 
     if proc.returncode == 255 and checked_est == 0:
@@ -321,6 +336,14 @@ try:
             f"[METRICS] Checked: {checked_est:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
         )
         update_status("finished", 100, exhausted_msg, hc_engine_tag)
+        sync_job_result(
+            job_id=job_id,
+            status="exhausted",
+            progress=100,
+            outcome="Dictionary Exhausted",
+            engine=hc_engine_tag,
+            resumable=False,
+        )
         sys.exit(1)
 
     incomplete_msg = (
@@ -330,6 +353,14 @@ try:
         f"[METRICS] Checked: {checked_est:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
     )
     update_status("error", 100, incomplete_msg, hc_engine_tag)
+    sync_job_result(
+        job_id=job_id,
+        status="incomplete",
+        progress=100,
+        outcome=f"Incomplete Scan (Code {proc.returncode})",
+        engine=hc_engine_tag,
+        resumable=False,
+    )
     sys.exit(1)
 
 except Exception as e:
@@ -342,5 +373,13 @@ except Exception as e:
         100,
         f"[ENGINE] Active: {hc_engine_tag}\n[-] FILE ERROR\n[FILE] {os.path.basename(file_path)}\n{err_formatted}\n[TIME] {elapsed}s",
         hc_engine_tag
+    )
+    sync_job_result(
+        job_id=job_id,
+        status="error",
+        progress=100,
+        outcome=f"Engine Error: {err_formatted}",
+        engine=hc_engine_tag,
+        resumable=False,
     )
     sys.exit(1)

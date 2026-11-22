@@ -6,6 +6,12 @@ import json
 import concurrent.futures
 import msoffcrypto
 
+try:
+    from firebase_sync import sync_job_result
+except Exception:
+    def sync_job_result(*args, **kwargs):
+        return False
+
 sys.stdout.reconfigure(line_buffering=True)
 
 if len(sys.argv) < 3:
@@ -125,6 +131,14 @@ try:
             100,
             f"[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] Document is not encrypted | [TIME] {elapsed}s"
         )
+        sync_job_result(
+            job_id=job_id,
+            status="error",
+            progress=100,
+            outcome="Document is not encrypted",
+            engine=ENGINE_TAG,
+            resumable=False,
+        )
         sys.exit(1)
 except Exception as e:
     elapsed = round(time.time() - start_time, 2)
@@ -132,6 +146,14 @@ except Exception as e:
         "error",
         100,
         f"[-] not fully complete dic pass and try again\n[DICT] {wordlist_label} | [REASON] Metadata parse error: {e} | [TIME] {elapsed}s"
+    )
+    sync_job_result(
+        job_id=job_id,
+        status="error",
+        progress=100,
+        outcome=f"Metadata parse error: {e}",
+        engine=ENGINE_TAG,
+        resumable=False,
     )
     sys.exit(1)
 
@@ -199,6 +221,16 @@ try:
                             f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
                         )
                         update_status("finished", 100, success_msg, resumable=False)
+                        sync_job_result(
+                            job_id=job_id,
+                            status="cracked",
+                            progress=100,
+                            cracked_password=res,
+                            outcome="Password Recovered",
+                            engine=ENGINE_TAG,
+                            last_line_index=current_line_pos,
+                            resumable=False,
+                        )
                         found = True
                         break
 
@@ -238,6 +270,15 @@ try:
                 f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
             )
             update_status("finished", 100, exhausted_msg, resumable=False)
+            sync_job_result(
+                job_id=job_id,
+                status="exhausted",
+                progress=100,
+                outcome="Dictionary Exhausted",
+                engine=ENGINE_TAG,
+                last_line_index=current_line_pos,
+                resumable=False,
+            )
         else:
             save_checkpoint(current_line_pos, checked)
             incomplete_msg = (
@@ -246,6 +287,15 @@ try:
                 f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
             )
             update_status("error", 100, incomplete_msg, resumable=True)
+            sync_job_result(
+                job_id=job_id,
+                status="incomplete",
+                progress=100,
+                outcome="Interrupted Scan",
+                engine=ENGINE_TAG,
+                last_line_index=current_line_pos,
+                resumable=True,
+            )
 
 except Exception as e:
     save_checkpoint(current_line_pos, checked)
@@ -259,3 +309,12 @@ except Exception as e:
         f"[METRICS] Checked: {checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s | Error: {e}"
     )
     update_status("error", 100, err_msg, resumable=True)
+    sync_job_result(
+        job_id=job_id,
+        status="incomplete",
+        progress=100,
+        outcome=f"Scan Error: {e}",
+        engine=ENGINE_TAG,
+        last_line_index=current_line_pos,
+        resumable=True,
+    )

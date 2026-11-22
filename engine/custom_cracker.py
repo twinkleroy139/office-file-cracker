@@ -6,6 +6,12 @@ import json
 import concurrent.futures
 import msoffcrypto
 
+try:
+    from firebase_sync import sync_job_result
+except Exception:
+    def sync_job_result(*args, **kwargs):
+        return False
+
 if len(sys.argv) < 3:
     sys.exit(1)
 
@@ -64,21 +70,18 @@ mangled_passwords = set()
 years = ["2026", "2025", "2024", "2023", "2020", "123", "1234", "12345", "!", "@", "#", "01", "07"]
 
 for word in base_clues:
-    # 1. Base variations
     mangled_passwords.add(word)
     mangled_passwords.add(word.lower())
     mangled_passwords.add(word.upper())
     mangled_passwords.add(word.capitalize())
-    mangled_passwords.add(word[::-1])  # Reversed
+    mangled_passwords.add(word[::-1])
 
-    # 2. Append years and symbols
     for y in years:
         mangled_passwords.add(word + y)
         mangled_passwords.add(word.capitalize() + y)
         mangled_passwords.add(word.upper() + y)
         mangled_passwords.add(y + word)
 
-    # 3. Leetspeak basic substitutions
     leetspeak = word.lower().replace('a', '@').replace('e', '3').replace('i', '1').replace('o', '0').replace('s', '$')
     mangled_passwords.add(leetspeak)
     for y in years:
@@ -88,7 +91,6 @@ passwords_list = list(mangled_passwords)
 total_passwords = len(passwords_list)
 print(f"[INFO] Smart Mangling generated {total_passwords:,} intelligent combinations from your clues.")
 
-# Load file into RAM buffer
 try:
     with open(file_path, "rb") as f:
         file_bytes = f.read()
@@ -128,6 +130,15 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
                 "finished",
                 100,
                 f"[ENGINE] Active: {ENGINE_TAG}\n[SUCCESS] Smart Match Found: [{res}]\n[METRICS] Checked: {checked_count:,} permutations ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
+            )
+            sync_job_result(
+                job_id=job_id,
+                status="cracked",
+                progress=100,
+                cracked_password=res,
+                outcome="Smart Clue Match Found",
+                engine=ENGINE_TAG,
+                resumable=False,
             )
             sys.exit(0)
 

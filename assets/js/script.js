@@ -37,10 +37,16 @@ function showDashboardView() {
                 const wl = j.wordlist_name || 'None';
                 const st = (j.status || 'unknown').toUpperCase();
                 const lineIdx = Number(j.last_line_index || 0).toLocaleString();
+                const pwdBadge = j.cracked_password
+                    ? ` | <span style="color: #38bdf8;">Password: <strong>${j.cracked_password}</strong></span>`
+                    : '';
+                const outcomeBadge = j.outcome
+                    ? ` | <span>${j.outcome}</span>`
+                    : '';
                 return `<div style="border-top: 1px solid #00ff6622; padding: 8px 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <div>
                         <div><strong style="color: #00ff66;">${file}</strong> <span style="font-size: 11px; color: #00b347;">(${wl})</span></div>
-                        <div style="font-size: 11px; color: #00b347;">ID: ${id} | Status: <strong>${st}</strong> | Line: #${lineIdx}</div>
+                        <div style="font-size: 11px; color: #00b347;">ID: ${id} | Status: <strong>${st}</strong>${pwdBadge}${outcomeBadge} | Line: #${lineIdx}</div>
                     </div>
                 </div>`;
             }).join('');

@@ -1,14 +1,19 @@
 FROM php:8.2-cli
 
-# Install Python, pip, and hashcat
+# Install Python, pip, hashcat, qpdf, and 7z CLI tools
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     hashcat \
+    qpdf \
+    p7zip-full \
     && rm -rf /var/lib/apt/lists/*
 
 # Install required Python cracking libraries
-RUN pip3 install msoffcrypto-tool --break-system-packages
+RUN pip3 install --break-system-packages \
+    msoffcrypto-tool \
+    pypdf \
+    py7zr
 
 # Set working directory
 WORKDIR /var/www/html

@@ -63,24 +63,31 @@ def build_clue_candidates(raw_clues: str) -> list[str]:
     base_clues = [c.strip() for c in raw_clues.split(",") if c.strip()]
     if not base_clues:
         return []
-    candidates = set()
+    candidates = []
+    seen = set()
     suffixes = ["2026", "2025", "2024", "2023", "2020", "123", "1234", "12345", "!", "@", "#", "01", "07"]
+
+    def add_cand(val: str):
+        if val and val not in seen:
+            seen.add(val)
+            candidates.append(val)
+
     for word in base_clues:
-        candidates.add(word)
-        candidates.add(word.lower())
-        candidates.add(word.upper())
-        candidates.add(word.capitalize())
-        candidates.add(word[::-1])
+        add_cand(word)
+        add_cand(word.lower())
+        add_cand(word.upper())
+        add_cand(word.capitalize())
+        add_cand(word[::-1])
         for sfx in suffixes:
-            candidates.add(word + sfx)
-            candidates.add(word.capitalize() + sfx)
-            candidates.add(word.upper() + sfx)
-            candidates.add(sfx + word)
+            add_cand(word + sfx)
+            add_cand(word.capitalize() + sfx)
+            add_cand(word.upper() + sfx)
+            add_cand(sfx + word)
         leet = word.lower().replace("a", "@").replace("e", "3").replace("i", "1").replace("o", "0").replace("s", "$")
-        candidates.add(leet)
+        add_cand(leet)
         for sfx in suffixes:
-            candidates.add(leet + sfx)
-    return list(candidates)
+            add_cand(leet + sfx)
+    return candidates
 
 
 def run_hashcat_if_applicable(hc_mode: int, hash_line: str, wl_path: str, engine_tag: str):
@@ -164,7 +171,7 @@ def try_candidate_list(candidates: list[str], phase_label: str, start_pct: int, 
             if matched:
                 return matched, checked
 
-            if checked % 25 == 0 or checked == total:
+            if checked % 50 == 0 or checked == total:
                 elapsed_now = max(0.1, round(time.time() - start_time, 1))
                 rate_now = round(checked / elapsed_now, 2)
                 pct = min(end_pct, start_pct + int((checked / max(1, total)) * (end_pct - start_pct)))
@@ -211,10 +218,12 @@ if not cracked_pwd and not is_cancelled() and wordlist_path and os.path.exists(w
 
     if not cracked_pwd and not is_cancelled():
         wl_candidates = []
+        seen_wl = set()
         with open(wordlist_path, "r", encoding="utf-8", errors="ignore") as wf:
             for line in wf:
                 word = line.strip()
-                if word:
+                if word and word not in seen_wl:
+                    seen_wl.add(word)
                     wl_candidates.append(word)
                     if len(wl_candidates) >= 25000:
                         break

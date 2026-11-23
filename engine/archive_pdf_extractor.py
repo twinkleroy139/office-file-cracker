@@ -67,11 +67,8 @@ def _extract_zip_hashcat_hash(file_path: str):
             if not enc_data:
                 return None, "ZIP encrypted payload empty"
 
-            # Hashcat -m 17200 / 17220 / 17225 / 17230 format helper
             magic_type = 0 if comp_method != 99 else 3
             magic_str = f"000{magic_type}"
-            # Standard $zip2$* structure: $zip2$*MAGIC*MODE*...
-            # Keep format clean and only return when structure is well-formed
             if magic_type == 0 and len(enc_data) >= 12:
                 header_12 = enc_data[:12].hex()
                 tail_len = min(len(enc_data), 32)
@@ -97,7 +94,6 @@ def _extract_pdf_hashcat_hash(file_path: str):
         if b"/Encrypt" not in content:
             raise ValueError("PDF document does not contain a /Encrypt dictionary.")
 
-        # Try pdf2john if installed in PATH
         for tool in ("pdf2john.pl", "pdf2john", "pdf2john.py"):
             tool_path = shutil.which(tool)
             if tool_path:
@@ -193,17 +189,33 @@ def verify_password_for_format(file_path: str, fmt: str, password: str, extract_
                     zf.extractall(path=extract_dir, pwd=pwd_bytes)
                 return True
         except Exception:
-            return False
+            pass
+
+        seven_bin = shutil.which("7z") or shutil.which("7zz")
+        if seven_bin:
+            try:
+                proc = subprocess.run(
+                    [seven_bin, "t", f"-p{password}", file_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                return proc.returncode == 0
+            except Exception:
+                return False
+        return False
 
     if fmt == "pdf":
-        # Try pypdf / PyPDF2 first if available
         try:
             import pypdf  # type: ignore
             reader = pypdf.PdfReader(file_path)
             if not reader.is_encrypted:
                 return False
             res = reader.decrypt(password)
-            return bool(res)
+            if res and res != 0:
+                if len(reader.pages) > 0:
+                    _ = reader.pages[0].extract_text()
+                return True
         except Exception:
             pass
 
@@ -213,27 +225,36 @@ def verify_password_for_format(file_path: str, fmt: str, password: str, extract_
             if not reader.is_encrypted:
                 return False
             res = reader.decrypt(password)
-            return bool(res)
+            if res and res != 0:
+                if len(reader.pages) > 0:
+                    _ = reader.pages[0].extract_text()
+                return True
         except Exception:
             pass
 
-        # Fallback to qpdf if installed
         qpdf_bin = shutil.which("qpdf")
         if qpdf_bin:
-            out_probe = os.path.join(extract_dir or "/tmp", "pdf_probe_unlocked.pdf")
-            if extract_dir:
-                os.makedirs(extract_dir, exist_ok=True)
-            proc = subprocess.run(
-                [qpdf_bin, f"--password={password}", "--decrypt", file_path, out_probe],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            return proc.returncode == 0
+            try:
+                out_probe = os.path.join(extract_dir or "/tmp", f"pdf_probe_{os.getpid()}.pdf")
+                if extract_dir:
+                    os.makedirs(extract_dir, exist_ok=True)
+                proc = subprocess.run(
+                    [qpdf_bin, f"--password={password}", "--decrypt", file_path, out_probe],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if os.path.exists(out_probe):
+                    try:
+                        os.remove(out_probe)
+                    except Exception:
+                        pass
+                return proc.returncode == 0
+            except Exception:
+                return False
         return False
 
     if fmt == "7z":
-        # Try py7zr if installed
         try:
             import py7zr  # type: ignore
             with py7zr.SevenZipFile(file_path, mode="r", password=password) as sz:
@@ -246,25 +267,27 @@ def verify_password_for_format(file_path: str, fmt: str, password: str, extract_
         except Exception:
             pass
 
-        # Fallback to 7z / 7zz CLI if installed
         seven_bin = shutil.which("7z") or shutil.which("7zz")
         if seven_bin:
-            out_dir = extract_dir or os.path.join("/tmp", f"sz_probe_{os.getpid()}")
-            os.makedirs(out_dir, exist_ok=True)
-            proc = subprocess.run(
-                [seven_bin, "t", f"-p{password}", file_path],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if proc.returncode == 0 and extract_dir:
-                subprocess.run(
-                    [seven_bin, "x", "-y", f"-p{password}", f"-o{extract_dir}", file_path],
+            try:
+                out_dir = extract_dir or os.path.join("/tmp", f"sz_probe_{os.getpid()}")
+                os.makedirs(out_dir, exist_ok=True)
+                proc = subprocess.run(
+                    [seven_bin, "t", f"-p{password}", file_path],
                     capture_output=True,
                     text=True,
-                    timeout=15,
+                    timeout=10,
                 )
-            return proc.returncode == 0
+                if proc.returncode == 0 and extract_dir:
+                    subprocess.run(
+                        [seven_bin, "x", "-y", f"-p{password}", f"-o{extract_dir}", file_path],
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
+                    )
+                return proc.returncode == 0
+            except Exception:
+                return False
         return False
 
     return False

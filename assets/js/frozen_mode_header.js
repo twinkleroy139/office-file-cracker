@@ -200,7 +200,7 @@
                     const progressView = document.getElementById('progress-view');
                     if (document.getElementById('lbl-file')) document.getElementById('lbl-file').innerText = chosenFile;
                     if (document.getElementById('lbl-wordlist')) document.getElementById('lbl-wordlist').innerText = chosenWl;
-                    if (document.getElementById('lbl-status')) document.getElementById('lbl-status').innerText = `RUNNING ${data.format} ENGINE...`;
+                    if (document.getElementById('lbl-status')) document.getElementById('lbl-status').innerText = 'EXECUTING BACKGROUND CRACKING PIPELINE...';
                     if (dashboardView) dashboardView.style.display = 'none';
                     if (progressView) progressView.style.display = 'block';
 
@@ -208,22 +208,30 @@
                     const pctVal = document.getElementById('percent-val');
                     const termBox = document.getElementById('terminal-output');
                     const backBtn = document.getElementById('back-dashboard-btn');
+                    const stopBtn = document.getElementById('stop-process-btn');
+                    const cancelLink = document.getElementById('cancel-btn');
 
                     const poll = setInterval(() => {
                         fetch(`backend/status.php?job_id=${encodeURIComponent(data.job_id)}`)
                             .then(r => r.json())
                             .then(st => {
                                 if (bar) bar.style.width = `${st.progress || 15}%`;
-                                if (pctVal) pctVal.innerText = `${st.progress || 15}% ${st.engine || data.format}`;
+                                if (pctVal) pctVal.innerText = `${st.progress || 15}% Scanning...`;
                                 if (termBox) {
-                                    termBox.innerHTML = `<pre style="color:#00ffaa; margin:0; white-space:pre-wrap;">${st.output || ''}</pre>`;
+                                    termBox.innerHTML = `<pre style="color:#00ff66; margin:0; white-space:pre-wrap;">${st.output || ''}</pre>`;
                                     termBox.scrollTop = termBox.scrollHeight;
                                 }
                                 if (st.status === 'finished' || st.status === 'error') {
                                     clearInterval(poll);
                                     if (bar) bar.style.width = '100%';
                                     if (pctVal) pctVal.innerText = '100% Completed';
-                                    if (document.getElementById('lbl-status')) document.getElementById('lbl-status').innerText = `${data.format} SCAN FINISHED`;
+                                    if (document.getElementById('lbl-status')) {
+                                        document.getElementById('lbl-status').innerText = st.status === 'finished'
+                                            ? 'RECOVERY OPERATION FINISHED'
+                                            : 'INCOMPLETE / ERROR';
+                                    }
+                                    if (stopBtn) stopBtn.style.display = 'none';
+                                    if (cancelLink) cancelLink.style.display = 'none';
                                     if (backBtn) backBtn.style.display = 'block';
                                 }
                             })

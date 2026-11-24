@@ -167,9 +167,10 @@ def try_candidate_list(candidates: list[str], phase_label: str, start_pct: int, 
             if is_cancelled():
                 return None, checked
             checked += 1
+            cand_pwd = futures[fut]
             matched = fut.result()
             if matched:
-                return matched, checked
+                return cand_pwd, checked
 
             if checked % 50 == 0 or checked == total:
                 elapsed_now = max(0.1, round(time.time() - start_time, 1))
@@ -183,7 +184,7 @@ def try_candidate_list(candidates: list[str], phase_label: str, start_pct: int, 
                 )
     return None, checked
 
-
+    
 total_checked = 0
 cracked_pwd = None
 outcome_text = "No Match Found"

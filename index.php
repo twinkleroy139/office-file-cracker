@@ -98,7 +98,10 @@
             <button type="submit" id="start-btn">START RECOVERY PROCESS</button>
         </form>
 
-        <div id="job-history-panel" style="margin-top: 18px; border: 1px solid #00ff6644; padding: 12px; border-radius: 4px; background: #030a03;">
+        <!-- <div id="job-history-panel" style="margin-top: 18px; border: 1px solid #00ff6644; padding: 12px; border-radius: 4px; background: #030a03;"> -->
+        <div id="job-history-panel" style="display: none; margin-top: 18px; border: 1px solid #00ff6644; padding: 12px; border-radius: 4px; background: #030a03;">
+
+
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <strong style="font-size: 13px; color: #00ff66;">[🕒] Recent Job History (Firebase)</strong>
         <button type="button" id="refresh-history-btn" style="background: #041809; color: #00ff66; border: 1px solid #00ff6666; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; font-family: monospace;">Refresh</button>

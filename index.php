@@ -5,6 +5,7 @@
     <title>Document Password Recovery Suite</title>
     <link rel="stylesheet" href="assets/css/styles.css">
     <link rel="stylesheet" href="assets/css/frozen_cyber_aura.css">
+    <link rel="stylesheet" href="assets/css/clue_pattern_builder.css">
 </head>
 <body>
 <div class="container">
@@ -161,6 +162,10 @@
     </div>
 </div>
 
+
+
+
+<script src="assets/js/clue_pattern_builder.js"></script>
 <script src="assets/js/script.js"></script>
 <script src="assets/js/frozen_mode_header.js"></script>
 </body>

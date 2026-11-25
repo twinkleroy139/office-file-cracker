@@ -72,6 +72,18 @@ if (isset($_FILES['wordlist_file']) && $_FILES['wordlist_file']['error'] == 0) {
 
 $custom_clues = isset($_POST['custom_clues']) ? trim($_POST['custom_clues']) : "";
 
+$cpb_position = (isset($_POST['cpb_position']) && in_array(strtolower(trim($_POST['cpb_position'])), ['suffix', 'prefix', 'both'], true))
+    ? strtolower(trim($_POST['cpb_position'])) : 'suffix';
+$cpb_num_enabled = (isset($_POST['cpb_num_enabled']) && $_POST['cpb_num_enabled'] === '0') ? '0' : '1';
+$cpb_num_mode = (isset($_POST['cpb_num_mode']) && in_array(strtolower(trim($_POST['cpb_num_mode'])), ['smart', 'exact', 'disabled'], true))
+    ? strtolower(trim($_POST['cpb_num_mode'])) : 'smart';
+$cpb_num_digits = isset($_POST['cpb_num_digits']) ? preg_replace('/[^234,]/', '', $_POST['cpb_num_digits']) : '2,3';
+$cpb_sym_enabled = (isset($_POST['cpb_sym_enabled']) && $_POST['cpb_sym_enabled'] === '0') ? '0' : '1';
+$cpb_symbols = isset($_POST['cpb_symbols']) ? trim($_POST['cpb_symbols']) : '@,$';
+$cpb_depth = (isset($_POST['cpb_depth']) && in_array(strtolower(trim($_POST['cpb_depth'])), ['single', 'combined', 'deep'], true))
+    ? strtolower(trim($_POST['cpb_depth'])) : 'combined';
+$cpb_cases = isset($_POST['cpb_cases']) ? preg_replace('/[^a-z,]/', '', strtolower($_POST['cpb_cases'])) : 'lower,cap';
+
 $filter_dedup_trim = (isset($_POST['filter_dedup_trim']) && $_POST['filter_dedup_trim'] === '0') ? '0' : '1';
 $filter_min_len = isset($_POST['filter_min_len']) ? preg_replace('/[^0-9]/', '', $_POST['filter_min_len']) : '';
 $filter_max_len = isset($_POST['filter_max_len']) ? preg_replace('/[^0-9]/', '', $_POST['filter_max_len']) : '';
@@ -88,7 +100,6 @@ $initial_status = json_encode([
 ]);
 file_put_contents($status_file, $initial_status);
 
-
 require_once 'firebase_history.php';
 firebase_upsert_job($job_id, [
     'file_name' => $locked_file_name,
@@ -99,8 +110,6 @@ firebase_upsert_job($job_id, [
     'last_line_index' => 0,
     'created_at' => time()
 ]);
-
-
 
 $is_windows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
 $python_exe = $is_windows ? "python" : "python3";
@@ -119,6 +128,14 @@ if (!$is_windows) {
         . "FILTER_MAX_LEN=" . escapeshellarg($filter_max_len) . " "
         . "FILTER_CHAR_RULE=" . escapeshellarg($filter_char_rule) . " "
         . "FILTER_ORDER=" . escapeshellarg($filter_order) . " "
+        . "CPB_POSITION=" . escapeshellarg($cpb_position) . " "
+        . "CPB_NUM_ENABLED=" . escapeshellarg($cpb_num_enabled) . " "
+        . "CPB_NUM_MODE=" . escapeshellarg($cpb_num_mode) . " "
+        . "CPB_NUM_DIGITS=" . escapeshellarg($cpb_num_digits) . " "
+        . "CPB_SYM_ENABLED=" . escapeshellarg($cpb_sym_enabled) . " "
+        . "CPB_SYMBOLS=" . escapeshellarg($cpb_symbols) . " "
+        . "CPB_DEPTH=" . escapeshellarg($cpb_depth) . " "
+        . "CPB_CASES=" . escapeshellarg($cpb_cases) . " "
         . "JOB_ID=" . escapeshellarg($job_id) . " ";
 }
 
@@ -132,7 +149,7 @@ $escaped_label = escapeshellarg($wordlist_name);
 $escaped_job_id = escapeshellarg($job_id);
 
 if ($is_windows) {
-    $filter_cmd = "set \"FILTER_DEDUP_TRIM=$filter_dedup_trim\" && set \"FILTER_MIN_LEN=$filter_min_len\" && set \"FILTER_MAX_LEN=$filter_max_len\" && set \"FILTER_CHAR_RULE=$filter_char_rule\" && set \"FILTER_ORDER=$filter_order\" && set \"JOB_ID=$job_id\" && $python_exe $escaped_filter $escaped_wordlist $escaped_filtered_out";
+    $filter_cmd = "set \"FILTER_DEDUP_TRIM=$filter_dedup_trim\" && set \"FILTER_MIN_LEN=$filter_min_len\" && set \"FILTER_MAX_LEN=$filter_max_len\" && set \"FILTER_CHAR_RULE=$filter_char_rule\" && set \"FILTER_ORDER=$filter_order\" && set \"CPB_POSITION=$cpb_position\" && set \"CPB_NUM_ENABLED=$cpb_num_enabled\" && set \"CPB_NUM_MODE=$cpb_num_mode\" && set \"CPB_NUM_DIGITS=$cpb_num_digits\" && set \"CPB_SYM_ENABLED=$cpb_sym_enabled\" && set \"CPB_SYMBOLS=$cpb_symbols\" && set \"CPB_DEPTH=$cpb_depth\" && set \"CPB_CASES=$cpb_cases\" && set \"JOB_ID=$job_id\" && $python_exe $escaped_filter $escaped_wordlist $escaped_filtered_out";
     $crack_cmd = "$python_exe $escaped_engine $escaped_doc $escaped_filtered_out $escaped_clues $escaped_label $escaped_job_id";
     $cmd = "start /B cmd /C \"($filter_cmd && $crack_cmd) > " . escapeshellarg($stdout_log) . " 2>&1\"";
     pclose(popen($cmd, "r"));
@@ -154,3 +171,4 @@ respond_json([
     'wordlist' => $wordlist_name
 ]);
 ?>
+```[cite: 50]

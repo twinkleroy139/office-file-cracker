@@ -6,6 +6,8 @@ import json
 import concurrent.futures
 import msoffcrypto
 
+from clue_pattern_engine import generate_clue_candidates
+
 try:
     from firebase_sync import sync_job_result
 except Exception:
@@ -54,42 +56,19 @@ def update_status(state, progress, output_text):
         pass
 
 
-# Parse custom clues separated by commas
-base_clues = [c.strip() for c in raw_clues_arg.split(",") if c.strip()]
+base_clues = [c.strip() for c in raw_clues_arg.replace("\n", ",").split(",") if c.strip()]
 if not base_clues:
     print("[-] No custom clues provided.")
     sys.exit(1)
 
 print(f"[ENGINE] Active: {ENGINE_TAG}")
 print(f"[INFO] Base custom clues received: {base_clues}")
-print("[INFO] Generating Smart Rule-Based Mangling permutations...")
+print("[INFO] Generating Clue Pattern Builder permutations...")
 update_status("running", 12, f"[ENGINE] Active: {ENGINE_TAG}\n[INFO] Generating clue permutations...")
 
-# Smart Rule-Based Mangling Engine
-mangled_passwords = set()
-years = ["2026", "2025", "2024", "2023", "2020", "123", "1234", "12345", "!", "@", "#", "01", "07"]
-
-for word in base_clues:
-    mangled_passwords.add(word)
-    mangled_passwords.add(word.lower())
-    mangled_passwords.add(word.upper())
-    mangled_passwords.add(word.capitalize())
-    mangled_passwords.add(word[::-1])
-
-    for y in years:
-        mangled_passwords.add(word + y)
-        mangled_passwords.add(word.capitalize() + y)
-        mangled_passwords.add(word.upper() + y)
-        mangled_passwords.add(y + word)
-
-    leetspeak = word.lower().replace('a', '@').replace('e', '3').replace('i', '1').replace('o', '0').replace('s', '$')
-    mangled_passwords.add(leetspeak)
-    for y in years:
-        mangled_passwords.add(leetspeak + y)
-
-passwords_list = list(mangled_passwords)
+passwords_list = generate_clue_candidates(raw_clues_arg)
 total_passwords = len(passwords_list)
-print(f"[INFO] Smart Mangling generated {total_passwords:,} intelligent combinations from your clues.")
+print(f"[INFO] Clue Pattern Engine generated {total_passwords:,} combinations from your clues.")
 
 try:
     with open(file_path, "rb") as f:

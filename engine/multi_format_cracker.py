@@ -7,6 +7,7 @@ import subprocess
 import concurrent.futures
 
 from archive_pdf_extractor import extract_multi_format_target, verify_password_for_format
+from clue_pattern_engine import generate_clue_candidates
 
 try:
     from firebase_sync import sync_job_result
@@ -60,34 +61,7 @@ def update_status(state: str, progress: int, output_text: str, engine_label: str
 
 
 def build_clue_candidates(raw_clues: str) -> list[str]:
-    base_clues = [c.strip() for c in raw_clues.split(",") if c.strip()]
-    if not base_clues:
-        return []
-    candidates = []
-    seen = set()
-    suffixes = ["2026", "2025", "2024", "2023", "2020", "123", "1234", "12345", "!", "@", "#", "01", "07"]
-
-    def add_cand(val: str):
-        if val and val not in seen:
-            seen.add(val)
-            candidates.append(val)
-
-    for word in base_clues:
-        add_cand(word)
-        add_cand(word.lower())
-        add_cand(word.upper())
-        add_cand(word.capitalize())
-        add_cand(word[::-1])
-        for sfx in suffixes:
-            add_cand(word + sfx)
-            add_cand(word.capitalize() + sfx)
-            add_cand(word.upper() + sfx)
-            add_cand(sfx + word)
-        leet = word.lower().replace("a", "@").replace("e", "3").replace("i", "1").replace("o", "0").replace("s", "$")
-        add_cand(leet)
-        for sfx in suffixes:
-            add_cand(leet + sfx)
-    return candidates
+    return generate_clue_candidates(raw_clues)
 
 
 def run_hashcat_if_applicable(hc_mode: int, hash_line: str, wl_path: str, engine_tag: str):
@@ -184,7 +158,7 @@ def try_candidate_list(candidates: list[str], phase_label: str, start_pct: int, 
                 )
     return None, checked
 
-    
+
 total_checked = 0
 cracked_pwd = None
 outcome_text = "No Match Found"
@@ -195,7 +169,7 @@ if clue_list:
     update_status(
         "running",
         20,
-        f"[ENGINE] Active: {engine_tag}\n[INFO] Testing {len(clue_list):,} mangled clue permutations...",
+        f"[ENGINE] Active: {engine_tag}\n[INFO] Testing {len(clue_list):,} Clue Pattern Builder permutations...",
         engine_tag,
     )
     cracked_pwd, c_checked = try_candidate_list(clue_list, "Clue Mangling", 20, 45)

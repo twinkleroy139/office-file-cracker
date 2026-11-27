@@ -8,6 +8,7 @@ import concurrent.futures
 
 from archive_pdf_extractor import extract_multi_format_target, verify_password_for_format
 from clue_pattern_engine import generate_clue_candidates
+from job_cleanup import cleanup_old_jobs
 
 try:
     from firebase_sync import sync_job_result
@@ -36,11 +37,24 @@ status_json_path = os.path.join(logs_dir, "job_status.json")
 cancel_flag_path = os.path.join(logs_dir, "cancel.flag")
 hash_file_path = os.path.join(logs_dir, "multi_target.hash")
 
+MAX_CLUE_CANDIDATES = 100000
+
+try:
+    max_job_runtime_sec = float(os.environ.get("MULTI_FORMAT_MAX_SEC", "480"))
+    if max_job_runtime_sec < 15:
+        max_job_runtime_sec = 480.0
+except ValueError:
+    max_job_runtime_sec = 480.0
+
 os.makedirs(logs_dir, exist_ok=True)
 
 
 def is_cancelled() -> bool:
     return os.path.exists(cancel_flag_path)
+
+
+def is_timed_out() -> bool:
+    return (time.time() - start_time) >= max_job_runtime_sec
 
 
 def update_status(state: str, progress: int, output_text: str, engine_label: str = "MULTI-FORMAT (ZIP/PDF/7z)"):
@@ -61,10 +75,23 @@ def update_status(state: str, progress: int, output_text: str, engine_label: str
 
 
 def build_clue_candidates(raw_clues: str) -> list[str]:
-    return generate_clue_candidates(raw_clues)
+    return generate_clue_candidates(raw_clues, max_candidates=MAX_CLUE_CANDIDATES)
+
+
+def _guarded_verify(pwd: str) -> str | None:
+    if is_cancelled() or is_timed_out():
+        return None
+    try:
+        if verify_password_for_format(file_path, meta["format"], pwd, extracted_dir):
+            return pwd
+    except Exception:
+        return None
+    return None
 
 
 def run_hashcat_if_applicable(hc_mode: int, hash_line: str, wl_path: str, engine_tag: str):
+    if is_cancelled() or is_timed_out():
+        return None, 0
     hashcat_bin = shutil.which("hashcat")
     if not hashcat_bin or not hash_line or not wl_path or not os.path.exists(wl_path):
         return None, 0
@@ -76,6 +103,7 @@ def run_hashcat_if_applicable(hc_mode: int, hash_line: str, wl_path: str, engine
         return None, 0
 
     pot_path = os.path.join(logs_dir, "multi_hashcat.pot")
+    remaining_sec = max(10, min(120, int(max_job_runtime_sec - (time.time() - start_time))))
     cmd = [
         hashcat_bin,
         "-m", str(hc_mode),
@@ -87,7 +115,7 @@ def run_hashcat_if_applicable(hc_mode: int, hash_line: str, wl_path: str, engine
         "--quiet",
     ]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=remaining_sec)
         for ln in (proc.stdout or "").splitlines():
             s = ln.strip()
             if s.startswith(hash_line.strip() + ":"):
@@ -99,6 +127,10 @@ def run_hashcat_if_applicable(hc_mode: int, hash_line: str, wl_path: str, engine
 
 if is_cancelled():
     sys.exit(0)
+
+cleaned = cleanup_old_jobs(max_age_seconds=86400, keep_latest=10)
+if cleaned.get("removed_dirs", 0) > 0:
+    print(f"[CLEANUP] Pruned {cleaned['removed_dirs']} old job folders ({cleaned['freed_bytes']:,} bytes freed).")
 
 try:
     meta = extract_multi_format_target(file_path)
@@ -130,21 +162,20 @@ update_status(
 
 
 def try_candidate_list(candidates: list[str], phase_label: str, start_pct: int, end_pct: int):
-    if not candidates:
+    if not candidates or is_cancelled() or is_timed_out():
         return None, 0
 
     total = len(candidates)
     checked = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        futures = {executor.submit(verify_password_for_format, file_path, meta["format"], pwd, extracted_dir): pwd for pwd in candidates}
+        futures = [executor.submit(_guarded_verify, pwd) for pwd in candidates]
         for fut in concurrent.futures.as_completed(futures):
-            if is_cancelled():
+            if is_cancelled() or is_timed_out():
                 return None, checked
             checked += 1
-            cand_pwd = futures[fut]
-            matched = fut.result()
-            if matched:
-                return cand_pwd, checked
+            matched_pwd = fut.result()
+            if matched_pwd:
+                return matched_pwd, checked
 
             if checked % 50 == 0 or checked == total:
                 elapsed_now = max(0.1, round(time.time() - start_time, 1))
@@ -162,14 +193,17 @@ def try_candidate_list(candidates: list[str], phase_label: str, start_pct: int, 
 total_checked = 0
 cracked_pwd = None
 outcome_text = "No Match Found"
+cap_note = ""
 
 # 1. Custom clues first
 clue_list = build_clue_candidates(custom_clues)
 if clue_list:
+    if len(clue_list) >= MAX_CLUE_CANDIDATES:
+        cap_note = f"\n[WARN] Clue candidates capped at {MAX_CLUE_CANDIDATES:,} for container safety."
     update_status(
         "running",
         20,
-        f"[ENGINE] Active: {engine_tag}\n[INFO] Testing {len(clue_list):,} Clue Pattern Builder permutations...",
+        f"[ENGINE] Active: {engine_tag}\n[INFO] Testing {len(clue_list):,} Clue Pattern Builder permutations...{cap_note}",
         engine_tag,
     )
     cracked_pwd, c_checked = try_candidate_list(clue_list, "Clue Mangling", 20, 45)
@@ -178,7 +212,7 @@ if clue_list:
         outcome_text = f"{fmt} Smart Clue Match Found"
 
 # 2. Wordlist / Hashcat / Python verification
-if not cracked_pwd and not is_cancelled() and wordlist_path and os.path.exists(wordlist_path) and os.path.getsize(wordlist_path) > 0:
+if not cracked_pwd and not is_cancelled() and not is_timed_out() and wordlist_path and os.path.exists(wordlist_path) and os.path.getsize(wordlist_path) > 0:
     if hc_mode and hash_line:
         update_status(
             "running",
@@ -191,7 +225,7 @@ if not cracked_pwd and not is_cancelled() and wordlist_path and os.path.exists(w
             cracked_pwd = hc_pwd
             outcome_text = f"{fmt} Password Recovered (Hashcat -m {hc_mode})"
 
-    if not cracked_pwd and not is_cancelled():
+    if not cracked_pwd and not is_cancelled() and not is_timed_out():
         wl_candidates = []
         seen_wl = set()
         with open(wordlist_path, "r", encoding="utf-8", errors="ignore") as wf:
@@ -219,7 +253,7 @@ if cracked_pwd is not None:
         f"[ENGINE] Active: {engine_tag}\n"
         f"[SUCCESS] Password Recovered: [{cracked_pwd}]\n"
         f"[FORMAT] {fmt} | [DICTIONARY] {wordlist_label}\n"
-        f"[METRICS] Checked: {total_checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
+        f"[METRICS] Checked: {total_checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s{cap_note}"
     )
     update_status("finished", 100, msg, engine_tag)
     sync_job_result(
@@ -234,11 +268,30 @@ if cracked_pwd is not None:
     )
     sys.exit(0)
 
+if is_timed_out():
+    timeout_msg = (
+        f"[ENGINE] Active: {engine_tag}\n"
+        f"[TIMEOUT] Stopped after {elapsed}s safety limit ({max_job_runtime_sec:.0f}s max) to protect free-tier container.\n"
+        f"[FORMAT] {fmt} | [DICTIONARY] {wordlist_label}\n"
+        f"[METRICS] Checked: {total_checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s{cap_note}"
+    )
+    update_status("error", 100, timeout_msg, engine_tag)
+    sync_job_result(
+        job_id=job_id,
+        status="timeout",
+        progress=100,
+        outcome=f"Timed out after {elapsed}s",
+        engine=engine_tag,
+        last_line_index=total_checked,
+        resumable=False,
+    )
+    sys.exit(124)
+
 exhausted_msg = (
     f"[ENGINE] Active: {engine_tag}\n"
     f"[EXHAUSTED] {fmt} password not found in tested clues/dictionary\n"
     f"[FORMAT] {fmt} | [DICTIONARY] {wordlist_label}\n"
-    f"[METRICS] Checked: {total_checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
+    f"[METRICS] Checked: {total_checked:,} keys ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s{cap_note}"
 )
 update_status("finished", 100, exhausted_msg, engine_tag)
 sync_job_result(

@@ -30,6 +30,7 @@ cancel_flag_path = os.path.join(logs_dir, "cancel.flag")
 decrypted_out_path = os.path.join(logs_dir, "decrypted_output.docx") if job_id else os.path.abspath(os.path.join(base_dir, "../decrypted_output.docx"))
 
 ENGINE_TAG = "PYTHON MULTI-CORE + msoffcrypto (8 Threads)"
+MAX_CLUE_CANDIDATES = 100000
 
 
 def is_cancelled():
@@ -56,6 +57,9 @@ def update_status(state, progress, output_text):
         pass
 
 
+if is_cancelled():
+    sys.exit(0)
+
 base_clues = [c.strip() for c in raw_clues_arg.replace("\n", ",").split(",") if c.strip()]
 if not base_clues:
     print("[-] No custom clues provided.")
@@ -66,9 +70,14 @@ print(f"[INFO] Base custom clues received: {base_clues}")
 print("[INFO] Generating Clue Pattern Builder permutations...")
 update_status("running", 12, f"[ENGINE] Active: {ENGINE_TAG}\n[INFO] Generating clue permutations...")
 
-passwords_list = generate_clue_candidates(raw_clues_arg)
+passwords_list = generate_clue_candidates(raw_clues_arg, max_candidates=MAX_CLUE_CANDIDATES)
 total_passwords = len(passwords_list)
+cap_note = ""
+if total_passwords >= MAX_CLUE_CANDIDATES:
+    cap_note = f"\n[WARN] Candidate list capped at {MAX_CLUE_CANDIDATES:,} for container safety."
 print(f"[INFO] Clue Pattern Engine generated {total_passwords:,} combinations from your clues.")
+if cap_note:
+    print(cap_note.strip())
 
 try:
     with open(file_path, "rb") as f:
@@ -79,6 +88,8 @@ except Exception as e:
 
 
 def test_password(pwd):
+    if is_cancelled():
+        return None
     try:
         f_stream = io.BytesIO(file_bytes)
         enc_file = msoffcrypto.OfficeFile(f_stream)
@@ -92,34 +103,47 @@ def test_password(pwd):
 
 
 checked_count = 0
+found_password = None
+
 with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-    futures = {executor.submit(test_password, pwd): pwd for pwd in passwords_list}
+    futures = [executor.submit(test_password, pwd) for pwd in passwords_list]
 
     for future in concurrent.futures.as_completed(futures):
+        if is_cancelled():
+            break
         checked_count += 1
         res = future.result()
         if res:
-            elapsed = round(time.time() - start_time, 2)
-            rate = round(checked_count / elapsed, 2) if elapsed > 0 else checked_count
-            ms_per_key = round((elapsed / checked_count) * 1000.0, 1) if checked_count > 0 else 0.0
-            print(f"\n[ENGINE] Active: {ENGINE_TAG}")
-            print(f"[SUCCESS] Smart Match Found: [{res}]")
-            print(f"[METRICS] Checked: {checked_count:,} permutations ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s")
-            update_status(
-                "finished",
-                100,
-                f"[ENGINE] Active: {ENGINE_TAG}\n[SUCCESS] Smart Match Found: [{res}]\n[METRICS] Checked: {checked_count:,} permutations ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s"
-            )
-            sync_job_result(
-                job_id=job_id,
-                status="cracked",
-                progress=100,
-                cracked_password=res,
-                outcome="Smart Clue Match Found",
-                engine=ENGINE_TAG,
-                resumable=False,
-            )
-            sys.exit(0)
+            found_password = res
+            break
+
+if is_cancelled():
+    print(f"[ENGINE] Active: {ENGINE_TAG}")
+    print("[STOPPED] Custom clue scan cancelled cleanly.")
+    sys.exit(0)
+
+if found_password:
+    elapsed = round(time.time() - start_time, 2)
+    rate = round(checked_count / elapsed, 2) if elapsed > 0 else checked_count
+    ms_per_key = round((elapsed / checked_count) * 1000.0, 1) if checked_count > 0 else 0.0
+    print(f"\n[ENGINE] Active: {ENGINE_TAG}")
+    print(f"[SUCCESS] Smart Match Found: [{found_password}]")
+    print(f"[METRICS] Checked: {checked_count:,} permutations ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s")
+    update_status(
+        "finished",
+        100,
+        f"[ENGINE] Active: {ENGINE_TAG}\n[SUCCESS] Smart Match Found: [{found_password}]\n[METRICS] Checked: {checked_count:,} permutations ({rate} keys/s | {ms_per_key} ms/key) | Time: {elapsed}s{cap_note}"
+    )
+    sync_job_result(
+        job_id=job_id,
+        status="cracked",
+        progress=100,
+        cracked_password=found_password,
+        outcome="Smart Clue Match Found",
+        engine=ENGINE_TAG,
+        resumable=False,
+    )
+    sys.exit(0)
 
 print(f"[ENGINE] Active: {ENGINE_TAG}")
 print("[-] Custom clues mangling exhausted. No match found.")

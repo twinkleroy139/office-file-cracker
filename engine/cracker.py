@@ -3,6 +3,8 @@ import subprocess
 import os
 import shutil
 
+from job_cleanup import cleanup_old_jobs
+
 sys.stdout.reconfigure(line_buffering=True)
 
 if len(sys.argv) < 4:
@@ -21,12 +23,46 @@ engine_dir = os.path.dirname(os.path.abspath(__file__))
 # Detect python executable name
 py_cmd = "python" if os.name == "nt" else "python3"
 
+try:
+    timeout_sec = int(os.environ.get("SUBPROCESS_TIMEOUT_SEC", "600"))
+    if timeout_sec < 10:
+        timeout_sec = 600
+except ValueError:
+    timeout_sec = 600
+
 child_env = os.environ.copy()
 child_env["WORDLIST_LABEL"] = wordlist_label
 if job_id:
     child_env["JOB_ID"] = job_id
 
+
+def run_sub_module(args_list, module_label):
+    try:
+        res = subprocess.run(
+            args_list,
+            capture_output=True,
+            text=True,
+            env=child_env,
+            timeout=timeout_sec
+        )
+        if res.stdout:
+            print(res.stdout)
+        if res.stderr:
+            print(f"[-] Sub-Module stderr ({module_label}): {res.stderr}")
+        return res.returncode
+    except subprocess.TimeoutExpired as te:
+        if te.stdout:
+            out_str = te.stdout.decode("utf-8", errors="ignore") if isinstance(te.stdout, bytes) else te.stdout
+            print(out_str)
+        print(f"[-] Timeout in [{module_label}] after {timeout_sec}s (container safety limit reached).")
+        return 124
+
+
 try:
+    cleaned = cleanup_old_jobs(max_age_seconds=86400, keep_latest=10)
+    if cleaned.get("removed_dirs", 0) > 0:
+        print(f"[CLEANUP] Pruned {cleaned['removed_dirs']} old job folders ({cleaned['freed_bytes']:,} bytes freed).")
+
     # Step 1: Run custom clues engine (Python Multi-Core + msoffcrypto)
     if custom_clues and custom_clues.strip():
         executed_module = "custom_cracker.py"
@@ -36,11 +72,8 @@ try:
         args = [py_cmd, sub_script, locked_file, custom_clues]
         if job_id:
             args.append(job_id)
-        res = subprocess.run(args, capture_output=True, text=True, env=child_env)
-        print(res.stdout)
-        if res.stderr:
-            print(f"[-] Sub-Module stderr: {res.stderr}")
-        if res.returncode == 0:
+        rc = run_sub_module(args, executed_module)
+        if rc == 0:
             sys.exit(0)
 
     # Step 2: Run Phase 2 Hashcat wordlist engine (fallback to Phase 1 Python Multi-Core + msoffcrypto)
@@ -65,16 +98,8 @@ try:
         args = [py_cmd, sub_script, locked_file, wordlist_path, wordlist_label]
         if job_id:
             args.append(job_id)
-        res = subprocess.run(
-            args,
-            capture_output=True,
-            text=True,
-            env=child_env
-        )
-        print(res.stdout)
-        if res.stderr:
-            print(f"[-] Sub-Module stderr: {res.stderr}")
-        sys.exit(res.returncode)
+        rc = run_sub_module(args, executed_module)
+        sys.exit(rc)
 
     print("[-] Error: No valid wordlist or custom clues provided.")
     sys.exit(1)

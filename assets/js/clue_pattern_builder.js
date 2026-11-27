@@ -1,6 +1,8 @@
 (function () {
     const THRESHOLD_YELLOW = 2000;
     const THRESHOLD_RED = 50000;
+    const MAX_CANDIDATES_CAP = 100000;
+    const SMART_NUMBERS_COUNT = 13;
 
     function getClueCount(textareaEl) {
         if (!textareaEl || !textareaEl.value) return 0;
@@ -18,7 +20,7 @@
         const numModeEl = q('input[name^="cpb_num_mode_"]:checked');
         const d2 = q('.cpb-d2')?.checked ? 100 : 0;
         const d3 = q('.cpb-d3')?.checked ? 1000 : 0;
-        const d4 = q('.cpb-d4')?.checked ? 10000 : 0;
+        const d4 = q('.cpb-d4')?.checked ? 2500 : 0;
 
         const symEnabledEl = q('.cpb-sym-enable');
         const checkedSyms = Array.from(rootEl.querySelectorAll('.cpb-sym-cb:checked')).map(cb => cb.value);
@@ -67,35 +69,30 @@
     }
 
     function estimateCandidates(clueCount, cfg, isMultiFormat) {
-        if (clueCount <= 0) return 0;
+        const speed = isMultiFormat ? 150 : 2;
+        if (clueCount <= 0) return { total: 0, speed };
 
-        const posMult = cfg.position === 'both' ? 2 : 1;
-        const smartNums = 13; // 2026..2020, 123..12345, !@# / 01 / 07 baseline
         let numPool = 0;
         if (cfg.numEnabled) {
             if (cfg.numMode === 'exact') {
                 numPool = cfg.exactRangeSize > 0 ? cfg.exactRangeSize : 100;
             } else if (cfg.numMode === 'smart') {
-                numPool = smartNums;
+                numPool = SMART_NUMBERS_COUNT;
             }
         }
 
         const symPool = cfg.symEnabled ? cfg.symbols.length : 0;
-        let perVariantMult = 1;
+        let perVariantCount = 1 + numPool + symPool;
 
-        if (cfg.depth === 'single') {
-            perVariantMult = 1 + numPool + symPool;
+        if (cfg.depth === 'combined') {
+            perVariantCount += 4 * numPool * symPool;
         } else if (cfg.depth === 'deep') {
-            const n = Math.max(1, numPool);
-            const s = Math.max(1, symPool);
-            perVariantMult = 1 + numPool + symPool + (n * s) + (s * n * s);
-        } else {
-            // 'combined' default: base + num + sym + (num * sym)
-            perVariantMult = 1 + numPool + symPool + (numPool * symPool);
+            const deepExtraPerPair = 2 + Math.min(3, symPool);
+            perVariantCount += deepExtraPerPair * numPool * symPool;
         }
 
-        const speed = isMultiFormat ? 250 : 120;
-        const total = clueCount * cfg.caseCount * posMult * perVariantMult;
+        const rawTotal = clueCount * cfg.caseCount * perVariantCount;
+        const total = Math.min(MAX_CANDIDATES_CAP, rawTotal);
         return { total, speed };
     }
 
@@ -212,7 +209,7 @@
                         <span class="cpb-est-count">ESTIMATED CANDIDATES: 0</span>
                         <span class="cpb-est-time">EST. TIME: ~0s</span>
                     </div>
-                    <div class="cpb-est-speed" style="margin-top:3px; opacity:0.9;">(at current engine speed: python / 120 keys-s)</div>
+                    <div class="cpb-est-speed" style="margin-top:3px; opacity:0.9;">(at current engine speed: python / 2 keys-s)</div>
                 </div>
 
                 <div class="cpb-warning-box" style="display:none;">

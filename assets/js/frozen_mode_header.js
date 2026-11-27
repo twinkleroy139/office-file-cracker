@@ -21,10 +21,10 @@
                     </div>
                     <div class="frozen-mode-switch">
                         <button type="button" id="mode-btn-office" class="frozen-mode-btn active-office">
-                            📄 Office (DOCX / XLSX / Sheets)
+                            &#128196; Office (DOCX / XLSX / Sheets)
                         </button>
                         <button type="button" id="mode-btn-multi" class="frozen-mode-btn">
-                            ⚡ ZIP / PDF / 7z Engine
+                            &#9889; ZIP / PDF / 7z Engine
                         </button>
                     </div>
                 </div>
@@ -44,92 +44,102 @@
         }
 
         multiPanel.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; border-bottom:1px dashed rgba(232,121,249,0.4); padding-bottom:8px;">
-                <strong style="color:#f0abfc; font-size:14px; letter-spacing:1.2px;">[ ZIP / PDF / 7Z MULTI-FORMAT CRACKER ]</strong>
-                <span style="font-size:11px; color:#38bdf8;">● ISOLATED ENGINE: READY</span>
+            <div class="cyber-top-bar" style="border-bottom-color: rgba(232, 121, 249, 0.35);">
+                <div>
+                    <h2 style="color:#f0abfc; text-shadow:0 0 10px rgba(232,121,249,0.45);">[ ZIP / PDF / 7Z MULTI-FORMAT CRACKER ]</h2>
+                    <div class="cyber-subtitle" style="color:#c084fc;">clue mangling &rarr; dictionary filter &rarr; archive/pdf engine</div>
+                </div>
+                <span class="cyber-ready-pill" style="border-color:rgba(232,121,249,0.55); background:rgba(74,14,92,0.55); color:#f5d0fe;">&#9679; ISOLATED ENGINE: READY</span>
             </div>
 
-            <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:11px; color:#c084fc; padding:8px 10px; margin-bottom:14px; border:1px solid rgba(232,121,249,0.3); border-radius:4px; background:rgba(15, 23, 42, 0.7);">
+            <div class="cyber-telemetry-strip" style="border-color:rgba(232,121,249,0.28); color:#d8b4fe; background:rgba(12, 18, 32, 0.85);">
                 <span><strong>Pipeline:</strong> Clue Mangling (Recommended First) &rarr; Dictionary Filter &rarr; Archive/PDF Engine</span>
                 <span><strong>Formats:</strong> .ZIP, .PDF, .7Z</span>
             </div>
 
             <form id="multi-format-form" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label style="color:#7dd3fc;">1. Select Locked Archive or PDF (.zip, .pdf, .7z):</label>
-                    <input type="file" name="locked_file" id="mf_locked_file" accept=".zip,.pdf,.7z" required style="background:#030712; color:#f0abfc; border-color:rgba(232,121,249,0.45);">
-                    <div class="note" style="color:#94a3b8;">Supported formats: ZIP archives (.zip), encrypted PDFs (.pdf), and 7z archives (.7z).</div>
+                <div class="form-group cyber-step-card" style="border-color:rgba(56,189,248,0.28); background:rgba(8, 15, 28, 0.92);">
+                    <label class="cyber-step-heading" style="color:#7dd3fc !important;">1 &middot; Locked Archive or PDF (.zip, .pdf, .7z)</label>
+                    <div class="note cyber-step-desc" style="color:#94a3b8 !important;">Supported formats: ZIP archives (.zip), encrypted PDFs (.pdf), and 7z archives (.7z).</div>
+                    <div class="cyber-dropzone" style="border-color:rgba(232,121,249,0.42);">
+                        <input type="file" name="locked_file" id="mf_locked_file" accept=".zip,.pdf,.7z" required style="background:#030712; color:#f0abfc; border-color:rgba(232,121,249,0.45);">
+                        <div class="note" style="color:#cbd5e1;">Choose target archive or PDF &bull; Isolated multi-format extractor</div>
+                    </div>
                 </div>
 
-                <div class="form-group" style="border: 1px solid rgba(232,121,249,0.45); padding: 12px; border-radius: 4px; background: rgba(18, 10, 36, 0.75);">
-                    <label style="color:#f0abfc;">2. Custom Clues / Keywords (Recommended First Step):</label>
+                <div class="form-group cyber-step-card cyber-step-highlight" style="border-color:rgba(232,121,249,0.45); background:linear-gradient(180deg, rgba(24, 12, 44, 0.92), rgba(10, 15, 28, 0.95));">
+                    <label class="cyber-step-heading" style="color:#f0abfc !important;">2 &middot; Custom Clues / Keywords (Recommended First Step)</label>
+                    <div class="note cyber-step-desc" style="color:#e9d5ff !important;">
+                        <strong>Tip:</strong> Providing 2&ndash;3 clues (name, year, pet, leet variants etc.) can cut cracking time compared to a full dictionary scan. Clues are mangled and tested first; fallback dictionary runs only if clues don't match.
+                    </div>
                     <textarea name="custom_clues" id="mf_custom_clues" placeholder="Type words or numbers separated by commas, e.g., jitu, project, 2026, admin" style="background:#030712; color:#38bdf8; border-color:rgba(56,189,248,0.45);"></textarea>
-                    <div class="note" style="color:#e879f9; font-size:11px; margin-top:6px;">
-                        <strong>Tip:</strong> Providing 2-3 clues (name, year, pet, leet variants etc) can cut cracking time compared to a full dictionary scan.
-                    </div>
-                    <div class="note" style="color:#94a3b8; font-size:11px; margin-top:4px;">Clues are mangled and tested first; wordlist scanning below acts as the fallback if clues don't work.</div>
                 </div>
 
-                <div class="form-group">
-                    <label style="color:#7dd3fc;">3a. Fallback Pre-Installed Server Wordlist (If Clues Don't Work):</label>
-                    <select name="wordlist_select" id="mf_wordlist_select" style="width:100%; padding:10px; background:#030712; color:#00ffaa; border:1px solid rgba(56,189,248,0.45); border-radius:4px; font-family:monospace;">
-                        <option value="">-- None (Skip server wordlist) --</option>
-                        <option value="10k-most-common.txt" selected>10k Most Common Passwords (Recommended Fallback)</option>
-                        <option value="20k.txt">20k Expanded Passwords</option>
-                    </select>
-                    <div class="note" style="color:#94a3b8; font-size:11px; margin-top:4px;">Used only if custom clues do not match (or select None to test clues only).</div>
-                </div>
+                <div class="form-group cyber-step-card" style="border-color:rgba(56,189,248,0.28); background:rgba(8, 15, 28, 0.92);">
+                    <label class="cyber-step-heading" style="color:#7dd3fc !important;">3 &middot; Fallback Dictionary &amp; Filtering Setup</label>
+                    <div class="note cyber-step-desc" style="color:#94a3b8 !important;">Used only if custom clues do not match (or select None to test clues only). Custom upload overrides the dropdown selection.</div>
 
-                <div class="form-group">
-                    <label style="color:#7dd3fc;">3b. OR Upload Custom Password Bank Text File (.txt) (Fallback Option):</label>
-                    <input type="file" name="wordlist_file" id="mf_wordlist_file" accept=".txt" style="background:#030712; color:#7dd3fc; border-color:rgba(56,189,248,0.45);">
-                    <div class="note" style="color:#94a3b8; font-size:11px; margin-top:4px;">Custom upload overrides the fallback dropdown selection.</div>
-                </div>
-
-                <div class="form-group" style="border: 1px solid rgba(56,189,248,0.35); padding: 12px; border-radius: 4px; background: rgba(6, 13, 28, 0.85);">
-                    <label style="color:#7dd3fc;">3a / 3b Fallback Dictionary Filtering Setup (Smarter Defaults):</label>
-
-                    <div style="margin-top: 8px;">
-                        <label style="font-weight: normal; font-size: 12px; color:#cbd5e1;">
-                            <input type="checkbox" name="filter_dedup_trim" id="mf_filter_dedup_trim" value="1" checked>
-                            Deduplicate &amp; trim
-                        </label>
-                    </div>
-
-                    <div style="display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 110px;">
-                            <label style="font-weight: normal; font-size: 12px; color:#cbd5e1;">Min Length:</label>
-                            <input type="number" name="filter_min_len" id="mf_filter_min_len" min="1" max="64" value="4" placeholder="e.g. 4" style="width: 100%; padding: 6px; background: #030712; color: #00ffaa; border: 1px solid rgba(56,189,248,0.45); border-radius: 4px; font-family: monospace; box-sizing: border-box;">
-                        </div>
-                        <div style="flex: 1; min-width: 110px;">
-                            <label style="font-weight: normal; font-size: 12px; color:#cbd5e1;">Max Length:</label>
-                            <input type="number" name="filter_max_len" id="mf_filter_max_len" min="1" max="64" value="16" placeholder="e.g. 16" style="width: 100%; padding: 6px; background: #030712; color: #00ffaa; border: 1px solid rgba(56,189,248,0.45); border-radius: 4px; font-family: monospace; box-sizing: border-box;">
-                        </div>
-                        <div style="flex: 1.4; min-width: 140px;">
-                            <label style="font-weight: normal; font-size: 12px; color:#cbd5e1;">Pre-filter by character rules:</label>
-                            <select name="filter_char_rule" id="mf_filter_char_rule" style="width: 100%; padding: 6px; background: #030712; color: #00ffaa; border: 1px solid rgba(56,189,248,0.45); border-radius: 4px; font-family: monospace;">
-                                <option value="any">All Characters</option>
-                                <option value="numeric">Numbers Only (0-9)</option>
-                                <option value="alpha">Letters Only (A-Z, a-z)</option>
-                                <option value="alnum">Alphanumeric (Letters + Numbers)</option>
-                                <option value="lower">Lowercase Only</option>
-                                <option value="no_spaces" selected>No Spaces (Recommended)</option>
+                    <div class="cyber-grid-2">
+                        <div>
+                            <label for="mf_wordlist_select" style="color:#7dd3fc;">3a. Fallback Pre-Installed Server Wordlist</label>
+                            <select name="wordlist_select" id="mf_wordlist_select" class="cyber-select-field" style="background:#030712; color:#00ffaa; border-color:rgba(56,189,248,0.45);">
+                                <option value="">-- None (Skip server wordlist) --</option>
+                                <option value="10k-most-common.txt" selected>10k Most Common Passwords (Recommended Fallback)</option>
+                                <option value="20k.txt">20k Expanded Passwords</option>
                             </select>
                         </div>
+
+                        <div>
+                            <label for="mf_wordlist_file" style="color:#7dd3fc;">3b. OR Upload Custom Wordlist (.txt)</label>
+                            <input type="file" name="wordlist_file" id="mf_wordlist_file" accept=".txt" style="background:#030712; color:#7dd3fc; border-color:rgba(56,189,248,0.45);">
+                        </div>
                     </div>
 
-                    <div style="margin-top: 8px;">
-                        <label style="font-weight: normal; font-size: 12px; color:#cbd5e1;">Order by likelihood:</label>
-                        <select name="filter_order" id="mf_filter_order" style="width: 100%; padding: 6px; background: #030712; color: #00ffaa; border: 1px solid rgba(56,189,248,0.45); border-radius: 4px; font-family: monospace;">
-                            <option value="default">Default Dictionary Order</option>
-                            <option value="short_first">Shorter Passwords First</option>
-                            <option value="common_patterns" selected>Common Word+Number Patterns First (Recommended)</option>
-                        </select>
+                    <div class="cyber-subpanel" style="border-color:rgba(56,189,248,0.3); background:rgba(5, 11, 24, 0.9);">
+                        <label class="cyber-subpanel-title" style="color:#7dd3fc !important;">Dictionary Filtering Setup (Smarter Defaults)</label>
+
+                        <div class="cyber-filter-check-row">
+                            <label class="cyber-inline-label" style="color:#cbd5e1 !important;">
+                                <input type="checkbox" name="filter_dedup_trim" id="mf_filter_dedup_trim" value="1" checked>
+                                Deduplicate &amp; trim
+                            </label>
+                        </div>
+
+                        <div class="cyber-filter-row">
+                            <div class="cyber-filter-col">
+                                <label for="mf_filter_min_len" style="color:#cbd5e1;">Min Length:</label>
+                                <input type="number" name="filter_min_len" id="mf_filter_min_len" min="1" max="64" value="4" placeholder="e.g. 4" class="cyber-num-input" style="background:#030712; color:#00ffaa; border-color:rgba(56,189,248,0.45);">
+                            </div>
+                            <div class="cyber-filter-col">
+                                <label for="mf_filter_max_len" style="color:#cbd5e1;">Max Length:</label>
+                                <input type="number" name="filter_max_len" id="mf_filter_max_len" min="1" max="64" value="16" placeholder="e.g. 16" class="cyber-num-input" style="background:#030712; color:#00ffaa; border-color:rgba(56,189,248,0.45);">
+                            </div>
+                            <div class="cyber-filter-col-wide">
+                                <label for="mf_filter_char_rule" style="color:#cbd5e1;">Pre-filter by character rules:</label>
+                                <select name="filter_char_rule" id="mf_filter_char_rule" class="cyber-select-field" style="background:#030712; color:#00ffaa; border-color:rgba(56,189,248,0.45);">
+                                    <option value="any">All Characters</option>
+                                    <option value="numeric">Numbers Only (0-9)</option>
+                                    <option value="alpha">Letters Only (A-Z, a-z)</option>
+                                    <option value="alnum">Alphanumeric (Letters + Numbers)</option>
+                                    <option value="lower">Lowercase Only</option>
+                                    <option value="no_spaces" selected>No Spaces (Recommended)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="cyber-filter-check-row">
+                            <label for="mf_filter_order" style="color:#cbd5e1;">Order by likelihood:</label>
+                            <select name="filter_order" id="mf_filter_order" class="cyber-select-field" style="background:#030712; color:#00ffaa; border-color:rgba(56,189,248,0.45);">
+                                <option value="default">Default Dictionary Order</option>
+                                <option value="short_first">Shorter Passwords First</option>
+                                <option value="common_patterns" selected>Common Word+Number Patterns First (Recommended)</option>
+                            </select>
+                        </div>
+                        <div class="note" style="color:#94a3b8;">Tighter defaults trim unlikely candidates early; clear or change any field before starting if needed.</div>
                     </div>
-                    <div class="note" style="color:#94a3b8; font-size:11px; margin-top:6px;">Tighter defaults trim unlikely candidates early; clear or change any field before starting if needed.</div>
                 </div>
 
-                <button type="submit" id="mf-start-btn" style="background:#3b0764; color:#f5d0fe; border-color:#e879f9;">
+                <button type="submit" id="mf-start-btn" class="cyber-primary-cta" style="background:linear-gradient(90deg, rgba(88, 28, 135, 0.88), rgba(134, 25, 143, 0.88)); color:#fdf4ff; border-color:#e879f9; box-shadow:0 0 16px rgba(232,121,249,0.28);">
                     START ZIP / PDF / 7Z RECOVERY PROCESS
                 </button>
             </form>

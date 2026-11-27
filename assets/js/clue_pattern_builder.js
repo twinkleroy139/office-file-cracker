@@ -209,7 +209,7 @@
                         <span class="cpb-est-count">ESTIMATED CANDIDATES: 0</span>
                         <span class="cpb-est-time">EST. TIME: ~0s</span>
                     </div>
-                    <div class="cpb-est-speed" style="margin-top:3px; opacity:0.9;">(at current engine speed: python / 2 keys-s)</div>
+                    <div class="cpb-est-speed" style="margin-top:4px; opacity:0.92;">(at current engine speed: python / 2 keys-s)</div>
                 </div>
 
                 <div class="cpb-warning-box" style="display:none;">
